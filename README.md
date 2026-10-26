@@ -8,6 +8,7 @@ The app includes an independent copy of the crawler under `Backend/`; it does no
 
 ## Everyday use
 
+- The **briefcase icon in the macOS menu bar** stays available when the window is closed. Its menu offers Search Now, Open JobScout, counts, cancellation during a search, and Quit.
 - **Search → Search Now** / ⇧⌘R runs all enabled sources, updates history, and generates reports. The toolbar provides the same action. You can cancel a running search.
 - **Inbox** shows active opportunities above your configured report threshold. **Strong matches** uses your configured strong-score threshold.
 - Search title, company, description, location, or salary. Filter by role/source and sort by fit or discovery time.

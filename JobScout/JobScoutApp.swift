@@ -36,6 +36,36 @@ struct JobScoutApp: App {
             SettingsView(store: store)
                 .tint(.teal)
         }
+        MenuBarExtra("JobScout", systemImage: "briefcase.fill") {
+            JobScoutMenu(store: store)
+        }
+        .menuBarExtraStyle(.menu)
+    }
+}
+
+private struct JobScoutMenu: View {
+    @Bindable var store: JobStore
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Text("JobScout")
+        if store.isBusy {
+            Text(store.activity)
+        } else if store.snapshot != nil {
+            Text("\(store.count(.inbox)) opportunities · \(store.count(.strong)) strong matches")
+        }
+        Divider()
+        Button("Search Now", systemImage: "arrow.clockwise") { store.scan() }
+            .disabled(store.isBusy)
+        if store.isBusy {
+            Button("Cancel Search", systemImage: "stop.circle") { store.cancel() }
+        }
+        Button("Open JobScout", systemImage: "macwindow") {
+            openWindow(id: "main")
+            NSApp.activate()
+        }
+        Divider()
+        Button("Quit JobScout", systemImage: "power") { NSApp.terminate(nil) }
     }
 }
 
