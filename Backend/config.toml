@@ -1,0 +1,115 @@
+[profile]
+location = "Kharkiv, Ukraine"
+commercial_years = 6
+apple_salary_target_usd = 2700
+support_salary_target_usd = 700
+skills = [
+  { name = "Swift", pattern = '\bswift\b' },
+  { name = "UIKit", pattern = '\buikit\b' },
+  { name = "SwiftUI", pattern = '\bswiftui\b' },
+  { name = "Objective-C", pattern = '\bobjective[ -]?c\b' },
+  { name = "AppKit / Cocoa", pattern = '\b(appkit|cocoa)\b' },
+  { name = "Architecture / MVVM", pattern = '\b(mvvm|architecture|coordinator)\b|архітектур' },
+  { name = "Persistence", pattern = '\b(core data|realm|persistence)\b' },
+  { name = "Networking / APIs", pattern = '\b(rest|api|networking|http|postman|charles|proxyman)\b' },
+  { name = "CI/CD / releases", pattern = '\b(ci/cd|fastlane|app store|release management)\b' },
+  { name = "Debugging / diagnostics", pattern = '\b(debugging|crash logs?|firebase|jira)\b|діагност|налагодж' },
+]
+unsupported = [
+  { name = "Android", pattern = '\bandroid\b', hard_reject = true },
+  { name = "Kotlin Multiplatform", pattern = '\b(kotlin multiplatform|kmp|kmm)\b', hard_reject = true },
+  { name = "Flutter", pattern = '\bflutter\b', hard_reject = true },
+  { name = "React Native", pattern = '\breact native\b', hard_reject = true },
+  { name = "SQL", pattern = '\bsql\b', hard_reject = false },
+  { name = "Grafana", pattern = '\bgrafana\b', hard_reject = false },
+  { name = "Elasticsearch", pattern = '\belasticsearch\b', hard_reject = false },
+]
+learning = [
+  { name = "Combine", pattern = '\bcombine\b' },
+  { name = "Swift concurrency", pattern = '\b(actors?|sendable|async/await|structured concurrency)\b' },
+  { name = "Swift Testing", pattern = '\bswift testing\b' },
+]
+
+[scoring]
+strong_threshold = 70
+skills_for_full_points = 5
+minimum_description_length = 200
+missing_penalty = 6
+maximum_missing_penalty = 24
+
+[scoring.weights]
+role = 30
+skills = 25
+experience = 10
+location = 15
+communication = 5
+seniority = 5
+salary = 10
+
+[rules]
+apple_titles = ['\b(ios|macos|swift|apple platforms?)\b.*\b(engineer|developer|розробник|інженер)\b', '\b(engineer|developer|розробник|інженер)\b.*\b(ios|macos|swift|apple platforms?)\b', '\bmobile (engineer|developer)\b']
+support_titles = ['\b(application|mobile|production|incident|developer|technical|l2|l3)\b.*\b(support|operations)\b', '\b(support engineer|release manager|app store operations|internal tooling)\b', 'інженер.*підтримк|технічн.*підтримк']
+technical_support = ['\b(api|logs?|debugging|incident|root cause|b2b|internal engineering|sql|monitoring)\b', 'журнал|діагност|інцидент|налагодж']
+remote = ['\b(remote|remotely|work from home|worldwide)\b', 'віддален|дистанційн']
+ukraine = ['\b(ukraine|worldwide|anywhere|global remote)\b', 'україн|Україна']
+negation = ['\b(not required|no need|no mandatory|without|not mandatory|not necessary|no relocation|no regular office|not a requirement)\b', '\b(no|not)\b.{0,30}\b(required|mandatory|necessary)\b', 'не (потріб|обов|вимага)|без (релокац|обов)']
+optional = ['\b(optional|nice to have|bonus|a plus|preferred|occasional|optional travel)\b', 'буде плюсом|буде перевагою|необов|за бажанням']
+required = ['\b(must|required|mandatory|essential|minimum|need to|you have|we require)\b', 'обов[’\x27ʼ]?язков|вимага|необхідн|практичний досвід комерційної']
+commercial_required = ['\b(commercial|professional|production)\s+(?:(?:development|experience|in|with|of|using|building|apps?|applications?)\s+){0,5}{skill}', '\b(commercial|professional)\s+experience\s+with\s+both\s+(?:kotlin\s+\()?{skill}\)?\s+and\b', '{skill}\s+(?:(?:development|experience|in|with)\s+){0,3}(?:commercial|professional|production)\b', 'комерційн\w*\s+(?:(?:досвід\w*|розробк\w*|під|на|з)\s+){0,5}{skill}', '{skill}\s+(?:(?:досвід\w*|розробк\w*)\s+){0,3}комерційн']
+alternatives = ['\bor\b', '\bабо\b']
+requirement_headings = ['^(requirements?|qualifications?|you have|what we.re looking for|what we are looking for|what you bring|required for this role|if you are|must.have|вимоги|необхідні навички|ми очікуємо від вас|що (нам|ми) (важливо|очікуємо)).{0,8}$']
+optional_headings = ['^(nice.to.have|bonus|preferred|буде плюсом|буде перевагою).{0,8}$']
+section_endings = ['^(responsibilities|your responsibilities|benefits|what we offer|what you get|what you.ll (do|work on)|what you will do|what to do|about (us|the project)|interview process|details|обов[’\x27ʼ]?язки|умови|ми пропонуємо|про (нас|компанію)).{0,8}$']
+phone = ['\b(phone|calls?|on.call|night shifts?)\b', 'дзвін|телефон|нічн.*змін']
+seniority = ['\b(mid|middle|senior|lead)\b']
+seniority_mismatch = ['\b(junior|intern|head of|director|vp|chief)\b']
+geography_uncertain = ['\b(only|residen|citizen|visa|work permit|eu.based|us.based|poland|bulgaria)\b', 'лише|тільки|громадян|дозвіл на роботу']
+work_format_uncertain = ['\b(hybrid|onsite|on.site|office attendance|relocat)\w*', 'гібрид|офіс|релокац']
+
+[[rules.hard]]
+id = "relocation"
+scope = "lines"
+pattern = '(?i)\b(relocation is (mandatory|required)|must relocate|relocation required|need to move to|must move to)\b|обов[’\x27ʼ]?язкова релокація|релокація обов[’\x27ʼ]?язкова'
+reason = "Explicit mandatory relocation"
+
+[[rules.hard]]
+id = "regular_office"
+scope = "lines"
+pattern = '(?i)(?:must|required to) (?:work|be|attend).{0,35}(?:on.site|in (?:the |our )?office).{0,20}(?:kyiv|kiev|lviv|sofia|warsaw|london)|(?:kyiv|kiev|lviv|sofia|warsaw|london).{0,30}(?:office|on.site).{0,20}(?:mandatory|required)|обов[’\x27ʼ]?язков.{0,25}офіс.{0,20}(?:києв|львов|львів|варшав)|офіс.{0,20}(?:києв|львов|львів|варшав).{0,30}обов[’\x27ʼ]?язков'
+reason = "Explicit required office attendance outside Kharkiv"
+
+[[rules.hard]]
+id = "l1_customer_service"
+scope = "title"
+pattern = '\b(call.cent(er|re)|customer service|l1 support|sales manager|account manager)\b|\b(support|customer)\b.{0,30}\bl1\b|оператор кол.центру|менеджер з продаж|підтримк\w*.{0,30}\bl1\b'
+reason = "Explicit L1/customer service, call center, sales or account management title"
+
+[[rules.hard]]
+id = "phone_dominant"
+scope = "lines"
+pattern = '\b(primary|main|predominant)\w* (?:responsibility|duty|work|communication).{0,25}(?:phone|calls)|\b(?:80|90|100)%\s*(?:phone|calls)|переважно.{0,15}(?:телефон|дзвін)'
+reason = "Explicit predominantly phone-based work"
+
+[network]
+user_agent = "PersonalJobScout/0.1 (personal RSS reader)"
+delay_seconds = 2
+timeout_seconds = 20
+retries = 2
+max_bytes = 4194304
+
+[report]
+minimum_score = 45
+limit = 12
+timezone = "Europe/Kyiv"
+
+[[sources]]
+name = "dou"
+adapter = "dou"
+enabled = true
+urls = ["https://jobs.dou.ua/vacancies/feeds/?category=iOS", "https://jobs.dou.ua/vacancies/feeds/?category=Support"]
+
+[[sources]]
+name = "djinni"
+adapter = "djinni"
+enabled = true
+urls = ["https://djinni.co/jobs/rss/?primary_keyword=iOS", "https://djinni.co/jobs/rss/?primary_keyword=Support", "https://djinni.co/jobs/rss/?all_keywords=macOS", "https://djinni.co/jobs/rss/?all_keywords=Swift"]

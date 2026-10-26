@@ -1,0 +1,178 @@
+[
+  {
+    "name": "native remote",
+    "vacancy": {
+      "description": "Remote worldwide. Swift UIKit APIs. Requirements:\n5+ years of experience."
+    },
+    "rejected": false
+  },
+  {
+    "name": "mandatory relocation",
+    "vacancy": {
+      "description": "Must relocate to Warsaw."
+    },
+    "rejected": true
+  },
+  {
+    "name": "relocation optional",
+    "vacancy": {
+      "description": "Relocation optional; remote from Ukraine."
+    },
+    "rejected": false
+  },
+  {
+    "name": "relocation negated",
+    "vacancy": {
+      "description": "No relocation required. Remote worldwide."
+    },
+    "rejected": false
+  },
+  {
+    "name": "no need relocate",
+    "vacancy": {
+      "description": "No need to relocate. Work remotely from Ukraine."
+    },
+    "rejected": false
+  },
+  {
+    "name": "regular office",
+    "vacancy": {
+      "description": "You must work in the office in Kyiv three days a week."
+    },
+    "rejected": true
+  },
+  {
+    "name": "kharkiv office",
+    "vacancy": {
+      "description": "Must work in the office in Kharkiv."
+    },
+    "rejected": false
+  },
+  {
+    "name": "optional office",
+    "vacancy": {
+      "description": "Optional office visits in Kyiv; remote is available."
+    },
+    "rejected": false
+  },
+  {
+    "name": "office ambiguous",
+    "vacancy": {
+      "description": "Our office is in Kyiv. Hybrid work."
+    },
+    "rejected": false
+  },
+  {
+    "name": "android commercial required",
+    "vacancy": {
+      "description": "Requirements:\nCommercial Android development experience."
+    },
+    "rejected": true
+  },
+  {
+    "name": "flutter commercial mandatory",
+    "vacancy": {
+      "description": "Commercial Flutter experience is required."
+    },
+    "rejected": true
+  },
+  {
+    "name": "react native commercial mandatory",
+    "vacancy": {
+      "description": "Requirements:\nProfessional React Native development experience."
+    },
+    "rejected": true
+  },
+  {
+    "name": "android optional section",
+    "vacancy": {
+      "description": "Nice to have:\nCommercial Android experience.\nResponsibilities:\nBuild iOS features."
+    },
+    "rejected": false
+  },
+  {
+    "name": "android negated",
+    "vacancy": {
+      "description": "Commercial Android experience is not required."
+    },
+    "rejected": false
+  },
+  {
+    "name": "android alternative",
+    "vacancy": {
+      "description": "Requirements:\nCommercial iOS or Android experience."
+    },
+    "rejected": false
+  },
+  {
+    "name": "android ambiguous",
+    "vacancy": {
+      "description": "We also develop Android apps."
+    },
+    "rejected": false
+  },
+  {
+    "name": "flutter knowledge",
+    "vacancy": {
+      "description": "Requirements:\nKnowledge of Flutter."
+    },
+    "rejected": false
+  },
+  {
+    "name": "android team collaboration",
+    "vacancy": {
+      "description": "Requirements:\nCollaborate with Android engineers."
+    },
+    "rejected": false
+  },
+  {
+    "name": "ukrainian android required",
+    "vacancy": {
+      "description": "Вимоги:\nПрактичний досвід комерційної розробки під Android."
+    },
+    "rejected": true
+  },
+  {
+    "name": "ukrainian optional",
+    "vacancy": {
+      "description": "Буде плюсом:\nКомерційний досвід Flutter."
+    },
+    "rejected": false
+  },
+  {
+    "name": "ukrainian negation",
+    "vacancy": {
+      "description": "Комерційний досвід Flutter не обов’язковий."
+    },
+    "rejected": false
+  },
+  {
+    "name": "ukrainian relocation",
+    "vacancy": {
+      "description": "Обов’язкова релокація до Варшави."
+    },
+    "rejected": true
+  },
+  {
+    "name": "phone mention",
+    "vacancy": {
+      "description": "Investigate APIs; occasional calls with B2B clients."
+    },
+    "rejected": false
+  },
+  {
+    "name": "predominant phone",
+    "vacancy": {
+      "description": "Primary communication is by phone."
+    },
+    "rejected": true
+  },
+  {
+    "name": "L1 title",
+    "vacancy": {
+      "title": "L1 Support Specialist",
+      "description": "Answer customers."
+    },
+    "rejected": true
+  }
+]

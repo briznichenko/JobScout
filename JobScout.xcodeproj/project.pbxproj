@@ -1,0 +1,363 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		02D3CE25B42B4B5B8487A53FB60FC8C1 /* VacancyListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90852B1C13D51B745DB763FA0FF67221 /* VacancyListView.swift */; };
+		1D7DE93038BB720F23A66B70B5F18C0A /* Backend in Resources */ = {isa = PBXBuildFile; fileRef = 64EF74AFFE2D0CD75B1EDCEF01CC1E90 /* Backend */; };
+		536271B8F2F624176A213C58477B4AEB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE6D5342A9E636A5FEB25E86FF27BAA8 /* ContentView.swift */; };
+		656408B02466594A1C3291B0DBEB3A84 /* Vacancy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1E0181C103343129EA997EECC53F263 /* Vacancy.swift */; };
+		995BC5EE98D4E6C1756A001CFB076EAA /* JobScoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B252F4919D7848CED5A45A18A9B9C9 /* JobScoutTests.swift */; };
+		A1D9B656634FD43793B809966BF127FB /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44EAB26C8488AC7FF6D85C5C8530B23A /* BackendClient.swift */; };
+		A377C5025BDD4CB1EA903E5493A60291 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBF89A33FA48A9DD192192BC27CF339B /* SettingsView.swift */; };
+		AAA748E79AE38A69F554F4706AFE62EF /* VacancyDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86433AB5D007EAE0BCAE0D1883F4759D /* VacancyDetailView.swift */; };
+		CACD079B92F71D43C8C1F1E2FB5D4F5F /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B07FD140A75BB1C1D6855EEFEA88F12 /* Components.swift */; };
+		CAE207C98B8B7C2F74FBD825C9957D51 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1287744231D42FFDC38C2F896FBA33C8 /* Assets.xcassets */; };
+		CF6A5C6D8B0C23C86B866BC92DC5AB92 /* JobStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52D4961BEF63176B22D4F8901E99C7A5 /* JobStore.swift */; };
+		D0017F9F17B188C470C1A6930F7FCA0C /* JobScoutApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3424E520330BE96F1882F3CE29C70E2D /* JobScoutApp.swift */; };
+		E3A71DFBCBCF0A54C8A391FC63F841D6 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8139DBB44F4773ED4F4142F0884AE084 /* SidebarView.swift */; };
+		E720094EB827428C8B4A511BD458BED2 /* Seed in Resources */ = {isa = PBXBuildFile; fileRef = 14A714B96D0FDFA9CAD6E69A6B2C7B0A /* Seed */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BD65C3C083462B3B1793D17733EA3A78 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FA066CD4B5A734186CEABBC01F2D57A3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0AC4C66DB9BA5685D4C9E4A79EEF44F2;
+			remoteInfo = JobScout;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		1287744231D42FFDC38C2F896FBA33C8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		14A714B96D0FDFA9CAD6E69A6B2C7B0A /* Seed */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Seed; sourceTree = SOURCE_ROOT; };
+		3424E520330BE96F1882F3CE29C70E2D /* JobScoutApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobScoutApp.swift; sourceTree = "<group>"; };
+		44EAB26C8488AC7FF6D85C5C8530B23A /* BackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClient.swift; sourceTree = "<group>"; };
+		52D4961BEF63176B22D4F8901E99C7A5 /* JobStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobStore.swift; sourceTree = "<group>"; };
+		64EF74AFFE2D0CD75B1EDCEF01CC1E90 /* Backend */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Backend; sourceTree = SOURCE_ROOT; };
+		6B07FD140A75BB1C1D6855EEFEA88F12 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		7B10EE437C4A8AF0EA7FAF3E8C964132 /* JobScoutTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = JobScoutTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8139DBB44F4773ED4F4142F0884AE084 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		86433AB5D007EAE0BCAE0D1883F4759D /* VacancyDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VacancyDetailView.swift; sourceTree = "<group>"; };
+		90852B1C13D51B745DB763FA0FF67221 /* VacancyListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VacancyListView.swift; sourceTree = "<group>"; };
+		AD23CE945F4A6E28B377703A4619EC2A /* JobScout.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JobScout.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B1E0181C103343129EA997EECC53F263 /* Vacancy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vacancy.swift; sourceTree = "<group>"; };
+		CBF89A33FA48A9DD192192BC27CF339B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E1B252F4919D7848CED5A45A18A9B9C9 /* JobScoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobScoutTests.swift; sourceTree = "<group>"; };
+		FE6D5342A9E636A5FEB25E86FF27BAA8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0F9862A9EB129DEEB894DEE4011B90C3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AD23CE945F4A6E28B377703A4619EC2A /* JobScout.app */,
+				7B10EE437C4A8AF0EA7FAF3E8C964132 /* JobScoutTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		20839DE6381E45505A22DA72CFA60D79 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				6B07FD140A75BB1C1D6855EEFEA88F12 /* Components.swift */,
+				FE6D5342A9E636A5FEB25E86FF27BAA8 /* ContentView.swift */,
+				CBF89A33FA48A9DD192192BC27CF339B /* SettingsView.swift */,
+				8139DBB44F4773ED4F4142F0884AE084 /* SidebarView.swift */,
+				86433AB5D007EAE0BCAE0D1883F4759D /* VacancyDetailView.swift */,
+				90852B1C13D51B745DB763FA0FF67221 /* VacancyListView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		2174A550965A68718FD858095A40D2AD /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				52D4961BEF63176B22D4F8901E99C7A5 /* JobStore.swift */,
+				B1E0181C103343129EA997EECC53F263 /* Vacancy.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		5163756E63B63D21707312B2EC9FA246 /* JobScoutTests */ = {
+			isa = PBXGroup;
+			children = (
+				E1B252F4919D7848CED5A45A18A9B9C9 /* JobScoutTests.swift */,
+			);
+			path = JobScoutTests;
+			sourceTree = "<group>";
+		};
+		6393393CD18CEC69DE2F3894DEA3FBDE = {
+			isa = PBXGroup;
+			children = (
+				64EF74AFFE2D0CD75B1EDCEF01CC1E90 /* Backend */,
+				14A714B96D0FDFA9CAD6E69A6B2C7B0A /* Seed */,
+				9CDEB69F3A21B32233FD8E37743DE1E2 /* JobScout */,
+				5163756E63B63D21707312B2EC9FA246 /* JobScoutTests */,
+				0F9862A9EB129DEEB894DEE4011B90C3 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7B62BDC66E45789F9AF4AC9B4FA6FDBE /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				44EAB26C8488AC7FF6D85C5C8530B23A /* BackendClient.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		9CDEB69F3A21B32233FD8E37743DE1E2 /* JobScout */ = {
+			isa = PBXGroup;
+			children = (
+				1287744231D42FFDC38C2F896FBA33C8 /* Assets.xcassets */,
+				3424E520330BE96F1882F3CE29C70E2D /* JobScoutApp.swift */,
+				2174A550965A68718FD858095A40D2AD /* Models */,
+				7B62BDC66E45789F9AF4AC9B4FA6FDBE /* Services */,
+				20839DE6381E45505A22DA72CFA60D79 /* Views */,
+			);
+			path = JobScout;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0AC4C66DB9BA5685D4C9E4A79EEF44F2 /* JobScout */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6E925DB262C1CA24964C4000CCEC3DA9 /* Build configuration list for PBXNativeTarget "JobScout" */;
+			buildPhases = (
+				D1CAE9E5B6234BC6751A226E34FFCFDF /* Sources */,
+				DB7CCD703A4E2048180BF92FE6C2ECB4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = JobScout;
+			productName = JobScout;
+			productReference = AD23CE945F4A6E28B377703A4619EC2A /* JobScout.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D1B3C5024A25CA1422AE86C57AA0542E /* JobScoutTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 30A3F84D6A77438D92257924BEE1F972 /* Build configuration list for PBXNativeTarget "JobScoutTests" */;
+			buildPhases = (
+				579D3C596228D0BFED330E225526B725 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				576F53492EC4D85BB3C15E5E49493004 /* PBXTargetDependency */,
+			);
+			name = JobScoutTests;
+			productName = JobScoutTests;
+			productReference = 7B10EE437C4A8AF0EA7FAF3E8C964132 /* JobScoutTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FA066CD4B5A734186CEABBC01F2D57A3 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1000;
+				TargetAttributes = {
+					0AC4C66DB9BA5685D4C9E4A79EEF44F2 = {
+						ProvisioningStyle = Automatic;
+					};
+					D1B3C5024A25CA1422AE86C57AA0542E = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = 0AC4C66DB9BA5685D4C9E4A79EEF44F2;
+					};
+				};
+			};
+			buildConfigurationList = CFA4A48558452E62F159A3055877D470 /* Build configuration list for PBXProject "JobScout" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 6393393CD18CEC69DE2F3894DEA3FBDE;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0AC4C66DB9BA5685D4C9E4A79EEF44F2 /* JobScout */,
+				D1B3C5024A25CA1422AE86C57AA0542E /* JobScoutTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DB7CCD703A4E2048180BF92FE6C2ECB4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CAE207C98B8B7C2F74FBD825C9957D51 /* Assets.xcassets in Resources */,
+				1D7DE93038BB720F23A66B70B5F18C0A /* Backend in Resources */,
+				E720094EB827428C8B4A511BD458BED2 /* Seed in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		579D3C596228D0BFED330E225526B725 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				995BC5EE98D4E6C1756A001CFB076EAA /* JobScoutTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1CAE9E5B6234BC6751A226E34FFCFDF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1D9B656634FD43793B809966BF127FB /* BackendClient.swift in Sources */,
+				CACD079B92F71D43C8C1F1E2FB5D4F5F /* Components.swift in Sources */,
+				536271B8F2F624176A213C58477B4AEB /* ContentView.swift in Sources */,
+				D0017F9F17B188C470C1A6930F7FCA0C /* JobScoutApp.swift in Sources */,
+				CF6A5C6D8B0C23C86B866BC92DC5AB92 /* JobStore.swift in Sources */,
+				A377C5025BDD4CB1EA903E5493A60291 /* SettingsView.swift in Sources */,
+				E3A71DFBCBCF0A54C8A391FC63F841D6 /* SidebarView.swift in Sources */,
+				656408B02466594A1C3291B0DBEB3A84 /* Vacancy.swift in Sources */,
+				AAA748E79AE38A69F554F4706AFE62EF /* VacancyDetailView.swift in Sources */,
+				02D3CE25B42B4B5B8487A53FB60FC8C1 /* VacancyListView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		576F53492EC4D85BB3C15E5E49493004 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0AC4C66DB9BA5685D4C9E4A79EEF44F2 /* JobScout */;
+			targetProxy = BD65C3C083462B3B1793D17733EA3A78 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0254AA3D3EF37ECB361D923B07E10330 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = JobScout;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				PRODUCT_BUNDLE_IDENTIFIER = ua.andrii.JobScout;
+				PRODUCT_NAME = JobScout;
+			};
+			name = Release;
+		};
+		1378F2343A7F033FA33A9BECD9191F3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_TESTABILITY = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		2AC157AA1CCEE6A5A617F666053AEF12 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = JobScout;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				PRODUCT_BUNDLE_IDENTIFIER = ua.andrii.JobScout;
+				PRODUCT_NAME = JobScout;
+			};
+			name = Debug;
+		};
+		B54C21816EA99454A4046F12AE9D6058 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = ua.andrii.JobScoutTests;
+				PRODUCT_MODULE_NAME = JobScoutTests;
+				PRODUCT_NAME = JobScoutTests;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/JobScout.app/Contents/MacOS/JobScout";
+				TEST_TARGET_NAME = JobScout;
+			};
+			name = Release;
+		};
+		D892179FD62FB4806569645DCE4A19B7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				SDKROOT = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		FBC1ADACDC0588E04F722048162E4A26 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = ua.andrii.JobScoutTests;
+				PRODUCT_MODULE_NAME = JobScoutTests;
+				PRODUCT_NAME = JobScoutTests;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/JobScout.app/Contents/MacOS/JobScout";
+				TEST_TARGET_NAME = JobScout;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		30A3F84D6A77438D92257924BEE1F972 /* Build configuration list for PBXNativeTarget "JobScoutTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FBC1ADACDC0588E04F722048162E4A26 /* Debug */,
+				B54C21816EA99454A4046F12AE9D6058 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "";
+		};
+		6E925DB262C1CA24964C4000CCEC3DA9 /* Build configuration list for PBXNativeTarget "JobScout" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2AC157AA1CCEE6A5A617F666053AEF12 /* Debug */,
+				0254AA3D3EF37ECB361D923B07E10330 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "";
+		};
+		CFA4A48558452E62F159A3055877D470 /* Build configuration list for PBXProject "JobScout" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1378F2343A7F033FA33A9BECD9191F3B /* Debug */,
+				D892179FD62FB4806569645DCE4A19B7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FA066CD4B5A734186CEABBC01F2D57A3 /* Project object */;
+}

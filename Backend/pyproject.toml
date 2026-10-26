@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "personal-jobscout"
+version = "0.1.0"
+description = "Local, deterministic vacancy discovery and fit scoring"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+jobscout = "jobscout.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["jobscout*"]

@@ -1,0 +1,25 @@
+[
+  {
+    "source": "manual-alerts",
+    "url": "https://example.com/jobs/ios-demo",
+    "title": "Senior iOS Engineer",
+    "company": "SYNTHETIC Example Studio",
+    "description": "Remote worldwide. Swift, UIKit, REST APIs, MVVM, CI/CD.\nRequirements:\n5+ years of experience.\nResponsibilities:\nInvestigate production crash logs and maintain iOS applications. Collaborate with QA and backend teams to release features.",
+    "salary": "$3,000–4,000/month"
+  },
+  {
+    "source": "manual-alerts",
+    "url": "https://example.com/jobs/support-demo",
+    "title": "Application Support Engineer",
+    "company": "SYNTHETIC Example Tools",
+    "description": "Remote from Ukraine. B2B technical support investigating API requests, logs and incidents. Asynchronous customer communication.\nRequirements:\nSQL experience required.",
+    "salary": "$800–1,100/month"
+  },
+  {
+    "source": "manual-alerts",
+    "url": "https://example.com/jobs/relocation-demo",
+    "title": "iOS Developer",
+    "company": "SYNTHETIC Office Team",
+    "description": "Swift UIKit. Must relocate to Warsaw. Commercial iOS development."
+  }
+]

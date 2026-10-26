@@ -1,0 +1,10 @@
+.DS_Store
+.build/
+DerivedData/
+Build/
+*.xcuserstate
+xcuserdata/
+__pycache__/
+*.egg-info/
+Backend/data/
+Backend/reports/
