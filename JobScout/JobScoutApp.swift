@@ -14,13 +14,22 @@ struct JobScoutApp: App {
         }
         .defaultSize(width: 1380, height: 880)
         .commands {
-            CommandGroup(after: .newItem) {
-                Button("Scan for Vacancies") { store.scan() }
+            CommandMenu("Search") {
+                Button("Search Now") { store.scan() }
                     .keyboardShortcut("r", modifiers: [.command, .shift])
                     .disabled(store.isBusy)
                 Button("Refresh Stored Vacancies") { store.refresh() }
                     .keyboardShortcut("r", modifiers: .command)
                     .disabled(store.isBusy)
+                Button("Cancel Search") { store.cancel() }.disabled(!store.isBusy)
+                Divider()
+                Button("Import Google Sheets Tracker…") { store.requestedImport = "google_sheets" }
+                    .disabled(store.isBusy)
+                ForEach(store.snapshot?.sources ?? []) { source in
+                    if let url = URL(string: source.searchURL) {
+                        Button(source.id == "google_sheets" ? "Open Application Tracker" : "Open \(sourceName(source.id)) Search") { NSWorkspace.shared.open(url) }
+                    }
+                }
             }
         }
         Settings {

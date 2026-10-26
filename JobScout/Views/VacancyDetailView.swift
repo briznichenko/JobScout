@@ -11,6 +11,7 @@ struct VacancyDetailView: View {
                 header
                 actions
                 metadata
+                trackerHistory
                 if job.assessment.decision == "rejected" {
                     FactorSection(title: "Why this was filtered", symbol: "line.3.horizontal.decrease.circle", color: .orange, factors: job.assessment.rejected)
                 }
@@ -91,7 +92,7 @@ struct VacancyDetailView: View {
         HStack(spacing: 12) {
             if let url = URL(string: job.payload.url), ["https", "http"].contains(url.scheme) {
                 Link(destination: url) {
-                    Label("Open vacancy", systemImage: "arrow.up.right")
+                    Label(job.payload.source == "google_sheets" && URL(string: job.payload.url)?.host == "docs.google.com" ? "Open tracker row" : "Open vacancy", systemImage: "arrow.up.right")
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -137,5 +138,33 @@ struct VacancyDetailView: View {
         }
         .padding(16)
         .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder private var trackerHistory: some View {
+        ForEach(job.trackerEntries ?? []) { entry in
+            Panel {
+                Label("Application tracker", systemImage: "tablecells").font(.headline)
+                Text("\(entry.sheet), row \(entry.row) · Original status: \(entry.originalStatus.isEmpty ? "Not recorded" : entry.originalStatus)")
+                    .font(.callout)
+                if !entry.dateSent.isEmpty {
+                    Text("Date sent: \(entry.dateSent)").font(.callout)
+                }
+                if entry.struckOut {
+                    Text("Crossed out in the tracker. This does not by itself mean employer rejection.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                ForEach(["last update", "follow-up due", "gaps to prep", "notes", "retrospective", "salary warning"], id: \.self) { key in
+                    if let value = entry.fields[key], !value.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(key.capitalized).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            Text(value).font(.callout).textSelection(.enabled)
+                        }
+                    }
+                }
+                if let url = URL(string: entry.sheetURL) {
+                    Link("Open original tracker row", destination: url)
+                }
+            }
+        }
     }
 }

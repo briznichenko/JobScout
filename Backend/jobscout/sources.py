@@ -40,3 +40,10 @@ class DjinniAdapter(RSSAdapter):
 
 
 ADAPTERS = {"dou": DOUAdapter, "djinni": DjinniAdapter}
+
+
+def adapter_for(kind: str):
+    if kind in ADAPTERS:
+        return ADAPTERS[kind]()
+    from .websources import RobotaUAAdapter, WorkUAAdapter
+    return {"workua": WorkUAAdapter, "robota": RobotaUAAdapter}[kind]()

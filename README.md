@@ -8,15 +8,32 @@ The app includes an independent copy of the crawler under `Backend/`; it does no
 
 ## Everyday use
 
-- **Scan** / ⇧⌘R fetches DOU and Djinni feeds, updates history, and generates reports. You can cancel a running scan.
+- **Search → Search Now** / ⇧⌘R runs all enabled sources, updates history, and generates reports. The toolbar provides the same action. You can cancel a running search.
 - **Inbox** shows active opportunities above your configured report threshold. **Strong matches** uses your configured strong-score threshold.
 - Search title, company, description, location, or salary. Filter by role/source and sort by fit or discovery time.
 - Select a vacancy to read its description, score breakdown, missing requirements, uncertainties, and rejection evidence.
 - Change the application status to Interested, Applied, Rejected, or Ignored. This persists in SQLite and survives scans. Filter rejection is separate from application rejection.
 - **Filter audit** exposes automatic rejections; **All vacancies** retains low scores and dismissed jobs.
-- **Import** accepts normalized JSON alerts or saved DOU/Djinni RSS. The remaining four platforms use file import.
+- **Import** accepts Google Sheets tracker exports, normalized JSON alerts, DOU/Djinni RSS, Work.ua/Robota.ua structured job HTML, and saved EML job alerts. LinkedIn imports accept EML/JSON only.
+- **Application tracker** shows imported application records. The detail view retains original status text, dates, notes, preparation gaps, retrospectives, and strikethrough flags. Exact vacancy URLs join existing listings without replacing their full descriptions. New live data can enrich a tracker-only entry.
 - **Report** generates and opens the current Markdown summary. ⌘R reloads stored data without crawling.
 - **Settings** configures your Python executable and opens the scoring rules or data folder. Edit the rules in your preferred text editor, save, then choose **Recalculate scores**.
+
+## Added sources and tracker refresh
+
+The configured sources are DOU, Djinni, Work.ua, Robota.ua, LinkedIn, and Google Sheets. Settings shows their collection mode, saved count, import inbox, browser search link, and latest errors. The source picker includes configured sources even before their first result. Tracker entries also appear under the original job platform when its URL identifies one.
+
+DOU/Djinni use RSS. Work.ua and Robota.ua adapters attempt public pages with robots checks and a maximum of 10 detail pages per source per run. They parse standard JobPosting JSON-LD. On 2026-10-26 both sites returned HTTP 403 from this runtime; this is reported as a source failure, while successful results from other sources are saved. No challenge, authentication, or denial is bypassed. Their structured-page parsers are fixture-tested; live collection remains unverified until access becomes available.
+
+LinkedIn is a saved-alert source, not a live crawler. Its published policy prohibits automated scraping. Use **Search → Open LinkedIn Search** to browse manually, then import saved email alerts with direct job links or manually normalized JSON. Tracking/login links are never followed. Email-wide text is not treated as the description of each job, preventing one vacancy's requirements from filtering another.
+
+The supplied Google Sheet is private. A read-only XLSX export was downloaded through the signed-in browser and imported into Application Support, without changing the Sheet or its sharing settings. It contains 48 application records across iOS and Tech Support. The export and its private notes are not committed or bundled in the app.
+
+To refresh it, download **File → Download → Microsoft Excel (.xlsx)** in Google Sheets, then choose **Import → Google Sheets tracker export…** in JobScout. XLSX preserves both tabs and strikethrough; CSV/TSV can import a single tab but do not carry formatting. The app retains the latest export under `imports/google_sheets/` and reprocesses it during Search Now. This is a local-export workflow, not authenticated background Google Sheets synchronization.
+
+Sent, screening, interview, no-response, and offer statuses map to Applied; explicit rejection maps to Rejected; draft/saved maps to Interested. Strikethrough alone does not imply employer rejection. Original text is always preserved. Reimport updates a mapped status only if you have not changed it locally. Tracker notes and salary warnings remain distinct from current vacancy requirements and published compensation. Rows without a role or vacancy URL are retained with an explicit missing-value label and a link to the tracker row.
+
+Put permitted saved files in `imports/workua/`, `imports/robota/`, or `imports/linkedin/`, or import them through the GUI. Search Now ingests them even when live collection is blocked. After upgrading, missing source definitions are appended to your existing config once, with a backup at `config.before-sources.toml`; existing profile and source settings are preserved.
 
 ## Data and runtime
 
@@ -26,6 +43,7 @@ Live data is stored in `~/Library/Application Support/JobScout/`:
 - `data/jobs.sqlite`: persistent vacancies, history, and statuses.
 - `data/raw/`: archived RSS responses.
 - `reports/`: Markdown reports and rejection audits.
+- `imports/`: private tracker exports and saved source files.
 
 The app copies the bundled config and seed database only when the respective destination files do not exist. Rebuilds do not reset your data. Back up this directory to preserve your search history. `Seed/jobs.sqlite` is the one-time starting snapshot, not a live database; application statuses never write into the project or app bundle.
 
@@ -71,4 +89,4 @@ python3 -B -m unittest discover -v
 
 Use `arch=x86_64` on an Intel Mac. A normal build targets the current machine. Swift 6 language mode and complete strict-concurrency checking are enabled in the project, including the test target.
 
-Verified on this Mac: native build, **9 Swift tests**, **42 Python tests**, and UI inspection of the three-column layout, status persistence, Interested folder, filter audit, settings, and a successful live scan from the GUI. The app also exposes partial-source failures and keeps existing data on errors. The retained source limitation still applies: RSS discovery is incomplete, and regex fit scoring requires human review.
+The expanded release passes **10 Swift tests and 59 Python tests**, including tracker decoding and status preservation, exact-URL joining, later live enrichment, source-file imports, robots wildcard rules, blocked access, and configuration migration. Test-host launches skip automatic workspace loading. The retained source limitation still applies: RSS discovery is incomplete, and regex fit scoring requires human review.

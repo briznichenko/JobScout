@@ -17,6 +17,7 @@ final class JobStore {
     var sort: VacancySort = .fit
     var pythonPath: String
     var showsSettings = false
+    var requestedImport: String?
 
     @ObservationIgnored private let backend: (any JobBackend)?
     @ObservationIgnored private let runtime: AppRuntime?
@@ -46,7 +47,7 @@ final class JobStore {
     var minimumScore: Int { snapshot?.minimumScore ?? 45 }
     var strongThreshold: Int { snapshot?.strongThreshold ?? 70 }
     var selectedJob: Vacancy? { jobs.first { $0.id == selection } }
-    var sources: [String] { Set(jobs.flatMap { $0.listings.map(\.source) }).sorted() }
+    var sources: [String] { Set(jobs.flatMap { $0.listings.map(\.source) } + (snapshot?.sources ?? []).map(\.id)).sorted() }
     var workspace: URL? { runtime?.workspace }
 
     var visibleJobs: [Vacancy] {
@@ -54,7 +55,7 @@ final class JobStore {
         return jobs.filter { job in
             selectedMailbox.contains(job, minimumScore: minimumScore, strongThreshold: strongThreshold)
                 && (role == .all || job.assessment.role == role.rawValue.lowercased())
-                && (source == "All sources" || job.listings.contains { $0.source == source })
+                && (source == "All sources" || job.hasSource(source))
                 && (search.isEmpty || job.searchableText.localizedStandardContains(search))
         }.sorted { left, right in
             if sort == .recent, left.created != right.created { return left.created > right.created }
@@ -72,7 +73,7 @@ final class JobStore {
     }
 
     func scan() {
-        perform(["scan"], activity: "Scanning DOU and Djinni…", completion: "Scan complete")
+        perform(["scan"], activity: "Searching configured sources…", completion: "Search complete")
     }
 
     func updateStatus(_ status: ApplicationStatus, for id: Int) {
@@ -83,6 +84,14 @@ final class JobStore {
         var command = ["import", url.path]
         if let adapter { command += ["--adapter", adapter] }
         perform(command, activity: "Importing vacancies…", completion: "Import complete")
+    }
+
+    func importTracker(_ url: URL) {
+        perform(["import-tracker", url.path], activity: "Importing application tracker…", completion: "Application tracker imported")
+    }
+
+    func importSource(_ url: URL, source: String) {
+        perform(["import-source", url.path, "--source", source], activity: "Importing \(sourceName(source))…", completion: "Source imported")
     }
 
     func rescore() {
@@ -126,6 +135,9 @@ final class JobStore {
                 try Task.checkCancellation()
                 snapshot = result
                 notice = completion
+                if command.first == "scan", let failures = result.lastRun?.failures, !failures.isEmpty {
+                    notice = "Search finished with \(failures.count) source issue(s). Successful results are saved."
+                }
                 reconcileSelection()
                 if openReport { NSWorkspace.shared.open(URL(filePath: result.reportPath)) }
             } catch is CancellationError {

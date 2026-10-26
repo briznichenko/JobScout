@@ -5,6 +5,8 @@ struct ContentView: View {
     @Bindable var store: JobStore
     @State private var showsImporter = false
     @State private var importAdapter: String?
+    @State private var importSource: String?
+    @State private var importsTracker = false
 
     var body: some View {
         NavigationSplitView {
@@ -35,6 +37,11 @@ struct ContentView: View {
                     Button("JSON job alerts…") { beginImport(adapter: nil) }
                     Button("Saved DOU RSS…") { beginImport(adapter: "dou") }
                     Button("Saved Djinni RSS…") { beginImport(adapter: "djinni") }
+                    Divider()
+                    Button("Google Sheets tracker export…") { beginSourceImport("google_sheets") }
+                    Button("Work.ua alerts or saved job…") { beginSourceImport("workua") }
+                    Button("Robota.ua alerts or saved job…") { beginSourceImport("robota") }
+                    Button("LinkedIn saved alerts…") { beginSourceImport("linkedin") }
                 } label: {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
@@ -45,14 +52,17 @@ struct ContentView: View {
                     .help("Generate and open the Markdown report")
                 SettingsLink { Label("Settings", systemImage: "gearshape") }
                     .help("Python and scoring settings")
-                Button("Scan", systemImage: "arrow.clockwise") { store.scan() }
+                Button("Search Now", systemImage: "arrow.clockwise") { store.scan() }
                     .disabled(store.isBusy)
-                    .help("Scan DOU and Djinni (⇧⌘R)")
+                    .help("Search configured sources (⇧⌘R)")
             }
         }
-        .fileImporter(isPresented: $showsImporter, allowedContentTypes: importAdapter == nil ? [.json] : [.xml]) { result in
+        .fileImporter(isPresented: $showsImporter, allowedContentTypes: importTypes) { result in
             switch result {
-            case .success(let url): store.importFile(url, adapter: importAdapter)
+            case .success(let url):
+                if importsTracker { store.importTracker(url) }
+                else if let importSource { store.importSource(url, source: importSource) }
+                else { store.importFile(url, adapter: importAdapter) }
             case .failure(let error): store.errorMessage = error.localizedDescription
             }
         }
@@ -65,15 +75,42 @@ struct ContentView: View {
         .sheet(isPresented: $store.showsSettings) {
             SettingsView(store: store)
         }
-        .task { if store.snapshot == nil { store.refresh() } }
+        .task {
+            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil, store.snapshot == nil {
+                store.refresh()
+            }
+        }
         .onChange(of: store.mailbox) { store.reconcileSelection() }
         .onChange(of: store.role) { store.reconcileSelection() }
         .onChange(of: store.source) { store.reconcileSelection() }
         .onChange(of: store.search) { store.reconcileSelection() }
+        .onChange(of: store.requestedImport) {
+            if let source = store.requestedImport {
+                store.requestedImport = nil
+                beginSourceImport(source)
+            }
+        }
     }
 
     private func beginImport(adapter: String?) {
         importAdapter = adapter
+        importSource = nil
+        importsTracker = false
         showsImporter = true
+    }
+
+    private func beginSourceImport(_ source: String) {
+        importAdapter = nil
+        importSource = source == "google_sheets" ? nil : source
+        importsTracker = source == "google_sheets"
+        store.showsSettings = false
+        showsImporter = true
+    }
+
+    private var importTypes: [UTType] {
+        if importsTracker { return [.spreadsheet, .commaSeparatedText, .tabSeparatedText] }
+        if importSource == "linkedin" { return [.json, .emailMessage] }
+        if importSource != nil { return [.json, .emailMessage, .html] }
+        return importAdapter == nil ? [.json] : [.xml]
     }
 }

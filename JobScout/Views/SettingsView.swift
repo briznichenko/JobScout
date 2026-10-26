@@ -6,7 +6,8 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        ScrollView {
+          VStack(alignment: .leading, spacing: 22) {
             HStack {
                 Image(systemName: "briefcase.fill").font(.title).foregroundStyle(.teal)
                 VStack(alignment: .leading, spacing: 3) {
@@ -44,6 +45,52 @@ struct SettingsView: View {
                 }
                 .padding(10)
             }
+            GroupBox("Sources") {
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(store.snapshot?.sources ?? []) { source in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(sourceName(source.id)).fontWeight(.semibold)
+                                Spacer()
+                                Text("\(source.count) saved").foregroundStyle(.secondary)
+                                if !source.enabled { Text("Disabled").foregroundStyle(.secondary) }
+                            }
+                            Text(source.mode).font(.caption).foregroundStyle(.secondary)
+                            if let failure = source.failures.first {
+                                Text(failure).font(.caption).foregroundStyle(.orange).lineLimit(3)
+                            } else if source.id == "linkedin" {
+                                Text("Reads saved alerts; does not crawl LinkedIn.").font(.caption).foregroundStyle(.secondary)
+                            } else if source.id == "google_sheets" {
+                                Text("Private Sheet: import an XLSX export to refresh both tabs.").font(.caption).foregroundStyle(.secondary)
+                            }
+                            HStack {
+                                if let url = URL(string: source.searchURL) {
+                                    Link(source.id == "google_sheets" ? "Open Sheet" : "Open search", destination: url)
+                                }
+                                if ["google_sheets", "workua", "robota", "linkedin"].contains(source.id) {
+                                    Button("Import…") {
+                                        store.requestedImport = source.id
+                                        dismiss()
+                                    }
+                                    .disabled(store.isBusy)
+                                }
+                                Button("Inbox folder") {
+                                    let url = URL(filePath: source.directory)
+                                    do {
+                                        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                                        NSWorkspace.shared.open(url)
+                                    } catch { store.errorMessage = error.localizedDescription }
+                                }
+                            }
+                            .font(.caption)
+                        }
+                        if source.id != store.snapshot?.sources?.last?.id { Divider() }
+                    }
+                    Text("Search Now reads saved inbox files as well as accessible live sources. Enable or disable sources in the TOML rules.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(10)
+            }
             if let workspace = store.workspace {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Your data").font(.headline)
@@ -72,8 +119,9 @@ struct SettingsView: View {
                 }
                 .keyboardShortcut(.defaultAction)
             }
-        }
+          }
         .padding(28)
-        .frame(width: 600)
+        }
+        .frame(width: 660, height: 780)
     }
 }

@@ -54,6 +54,11 @@ class Store:
                 old_status TEXT NOT NULL, new_status TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS listings_job ON listings(job_id);
+            CREATE TABLE IF NOT EXISTS tracker_entries (
+                entry_key TEXT PRIMARY KEY, job_id INTEGER NOT NULL REFERENCES jobs(id),
+                payload TEXT NOT NULL, mapped_status TEXT, imported TEXT NOT NULL,
+                local_history_count INTEGER NOT NULL DEFAULT 0
+            );
         """)
 
     def close(self):
@@ -65,6 +70,9 @@ class Store:
         return cursor.lastrowid
 
     def _duplicate(self, job: Vacancy) -> int | None:
+        same_url = self.db.execute("SELECT job_id FROM listings WHERE url=? LIMIT 1", (job.url,)).fetchone()
+        if same_url:
+            return same_url[0]
         for row in self.db.execute("SELECT job_id, payload FROM listings WHERE source != ?", (job.source,)):
             existing = Vacancy(**json.loads(row["payload"]))
             if normalized(existing.title) != normalized(job.title):
@@ -100,6 +108,9 @@ class Store:
                 job_id = cursor.lastrowid
             self.db.execute("INSERT INTO listings(source,url,job_id,first_seen,last_seen,fingerprint,payload) VALUES (?,?,?,?,?,?,?)",
                             (job.source, job.url, job_id, timestamp, timestamp, job.fingerprint(), payload))
+        representative = json.loads(self.db.execute("SELECT payload FROM jobs WHERE id=?", (job_id,)).fetchone()[0])
+        if job.source != "google_sheets" and representative["source"] == "google_sheets":
+            kind = "updated"
         if kind != "unchanged":
             self.db.execute("UPDATE jobs SET updated=?,payload=?,assessment=? WHERE id=?", (timestamp, payload, scored, job_id))
         elif existing and self.db.execute("SELECT payload FROM jobs WHERE id=?", (job_id,)).fetchone()[0] == existing["payload"]:
@@ -111,6 +122,23 @@ class Store:
         if not prior or rank[kind] > rank[prior[0]]:
             self.db.execute("INSERT OR REPLACE INTO events(run_id,job_id,kind) VALUES (?,?,?)", (run_id, job_id, kind))
         return job_id, kind
+
+    def import_tracker(self, entry, assessment: Assessment, run_id: int) -> int:
+        previous = self.db.execute("SELECT * FROM tracker_entries WHERE entry_key=?", (entry.key,)).fetchone()
+        if previous:
+            job_id = previous["job_id"]
+            self.db.execute("INSERT OR IGNORE INTO events(run_id,job_id,kind) VALUES (?,?,?)", (run_id, job_id, "unchanged"))
+            self.db.execute("UPDATE listings SET last_seen=? WHERE source='google_sheets' AND job_id=?", (now(), job_id))
+        else:
+            job_id, _ = self.upsert(entry.vacancy, assessment, run_id)
+        row = self.db.execute("SELECT status FROM jobs WHERE id=?", (job_id,)).fetchone()
+        history_count = self.db.execute("SELECT count(*) FROM status_history WHERE job_id=?", (job_id,)).fetchone()[0]
+        unchanged_locally = previous and history_count == previous["local_history_count"] and row[0] == previous["mapped_status"]
+        if entry.status and (not previous and row[0] == "New" and history_count == 0 or unchanged_locally):
+            self.db.execute("UPDATE jobs SET status=? WHERE id=?", (entry.status, job_id))
+        self.db.execute("INSERT OR REPLACE INTO tracker_entries(entry_key,job_id,payload,mapped_status,imported,local_history_count) VALUES (?,?,?,?,?,?)",
+                        (entry.key, job_id, json.dumps(entry.metadata, ensure_ascii=False), entry.status, now(), previous["local_history_count"] if previous and not unchanged_locally else history_count))
+        return job_id
 
     def complete_snapshot(self, source: str, seen_urls: set[str]):
         for row in self.db.execute("SELECT url,missing_count FROM listings WHERE source=?", (source,)).fetchall():
@@ -143,6 +171,7 @@ class Store:
             value = dict(row)
             value["payload"] = json.loads(value["payload"])
             value["assessment"] = json.loads(value["assessment"])
+            value["tracker_entries"] = [json.loads(item[0]) for item in self.db.execute("SELECT payload FROM tracker_entries WHERE job_id=?", (row["id"],))]
             value["listings"] = [dict(item) for item in self.db.execute("SELECT source,url,last_seen,potentially_removed FROM listings WHERE job_id=?", (row["id"],))]
             result.append(value)
         return result

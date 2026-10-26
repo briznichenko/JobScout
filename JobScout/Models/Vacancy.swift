@@ -20,14 +20,62 @@ struct Vacancy: Decodable, Identifiable, Sendable {
     let payload: VacancyContent
     let assessment: Assessment
     let listings: [SourceListing]
+    let trackerEntries: [TrackerEntry]?
+
+    enum CodingKeys: String, CodingKey {
+        case id, status, created, updated, kind, payload, assessment, listings
+        case trackerEntries = "tracker_entries"
+    }
 
     var isActive: Bool {
         status.isActive && assessment.decision != "rejected" && !listings.allSatisfy(\.potentiallyRemoved)
     }
 
     var searchableText: String {
-        [payload.title, payload.company, payload.description, payload.location, payload.salary]
+        ([payload.title, payload.company, payload.description, payload.location, payload.salary] + (trackerEntries ?? []).flatMap { Array($0.fields.values) })
             .joined(separator: " ")
+    }
+
+    func hasSource(_ source: String) -> Bool {
+        listings.contains { $0.source == source } || (trackerEntries ?? []).contains { $0.platform == source }
+    }
+}
+
+struct TrackerEntry: Decodable, Identifiable, Sendable {
+    let key: String
+    let sheet: String
+    let row: Int
+    let sheetURL: String
+    let vacancyURL: String
+    let originalStatus: String
+    let dateSent: String
+    let struckOut: Bool
+    let fields: [String: String]
+    let platform: String?
+    var id: String { key }
+
+    enum CodingKeys: String, CodingKey {
+        case key, sheet, row, fields, platform
+        case sheetURL = "sheet_url"
+        case vacancyURL = "vacancy_url"
+        case originalStatus = "original_status"
+        case dateSent = "date_sent"
+        case struckOut = "struck_out"
+    }
+}
+
+struct SourceInfo: Decodable, Identifiable, Sendable {
+    let id: String
+    let mode: String
+    let enabled: Bool
+    let count: Int
+    let failures: [String]
+    let searchURL: String
+    let directory: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, mode, enabled, count, failures, directory
+        case searchURL = "search_url"
     }
 }
 
@@ -102,9 +150,10 @@ struct JobSnapshot: Decodable, Sendable {
     let message: String?
     let minimumScore: Int
     let strongThreshold: Int
+    let sources: [SourceInfo]?
 
     enum CodingKeys: String, CodingKey {
-        case jobs, workspace, message
+        case jobs, workspace, message, sources
         case lastRun = "last_run"
         case reportPath = "report_path"
         case minimumScore = "minimum_score"
@@ -121,6 +170,7 @@ enum Mailbox: String, CaseIterable, Identifiable, Sendable {
     case rejected = "Rejected"
     case ignored = "Ignored"
     case all = "All vacancies"
+    case tracker = "Application tracker"
 
     var id: String { rawValue }
 
@@ -134,6 +184,7 @@ enum Mailbox: String, CaseIterable, Identifiable, Sendable {
         case .rejected: "xmark.circle"
         case .ignored: "archivebox"
         case .all: "square.stack"
+        case .tracker: "tablecells"
         }
     }
 
@@ -147,6 +198,7 @@ enum Mailbox: String, CaseIterable, Identifiable, Sendable {
         case .rejected: job.status == .rejected
         case .ignored: job.status == .ignored
         case .all: true
+        case .tracker: !(job.trackerEntries ?? []).isEmpty
         }
     }
 }

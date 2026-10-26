@@ -1,5 +1,6 @@
 import re
 import tomllib
+import os
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from zoneinfo import ZoneInfo
@@ -43,13 +44,34 @@ def load_config(path: Path) -> dict:
     if len(names) != len(set(names)):
         raise ValueError("Source names must be unique")
     for source in config["sources"]:
-        if source["adapter"] not in {"dou", "djinni"}:
+        if source["adapter"] not in {"dou", "djinni", "workua", "robota", "linkedin", "tracker"}:
             raise ValueError(f"Unknown adapter: {source['adapter']}")
-        if source["enabled"] and not source["urls"]:
+        if source["enabled"] and source["adapter"] not in {"linkedin", "tracker"} and not source["urls"]:
             raise ValueError("Enabled sources require at least one feed URL")
         allowed = {"dou": {"category", "search"}, "djinni": {"primary_keyword", "all_keywords", "any_of_keywords", "search_type"}}
         for url in source["urls"]:
-            unknown = parse_qs(urlsplit(url).query).keys() - allowed[source["adapter"]]
+            unknown = parse_qs(urlsplit(url).query).keys() - allowed.get(source["adapter"], set())
             if unknown:
                 raise ValueError(f"Unsupported feed parameters for {source['adapter']}: {', '.join(sorted(unknown))}")
     return config
+
+
+def migrate_sources(path: Path) -> None:
+    defaults = Path(__file__).resolve().parents[1] / "config.toml"
+    if defaults.resolve() == path.resolve():
+        return
+    content = path.read_text(encoding="utf-8")
+    existing = {source["name"] for source in tomllib.loads(content).get("sources", [])}
+    additions = []
+    for block in re.split(r"(?m)^\[\[sources\]\]", defaults.read_text(encoding="utf-8"))[1:]:
+        definition = "[[sources]]" + block
+        source = tomllib.loads(definition)["sources"][0]
+        if source["name"] not in existing:
+            additions.append(definition.rstrip())
+    if additions:
+        backup = path.with_suffix(".before-sources.toml")
+        if not backup.exists():
+            backup.write_text(content, encoding="utf-8")
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(content.rstrip() + "\n\n" + "\n\n".join(additions) + "\n", encoding="utf-8")
+        os.replace(temporary, path)

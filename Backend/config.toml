@@ -113,3 +113,38 @@ name = "djinni"
 adapter = "djinni"
 enabled = true
 urls = ["https://djinni.co/jobs/rss/?primary_keyword=iOS", "https://djinni.co/jobs/rss/?primary_keyword=Support", "https://djinni.co/jobs/rss/?all_keywords=macOS", "https://djinni.co/jobs/rss/?all_keywords=Swift"]
+
+[[sources]]
+name = "workua"
+adapter = "workua"
+enabled = true
+urls = ["https://www.work.ua/jobs-ios/", "https://www.work.ua/jobs-macos/", "https://www.work.ua/jobs-technical+support/"]
+search_url = "https://www.work.ua/jobs-ios/"
+directory = "imports/workua"
+detail_limit = 10
+
+[[sources]]
+name = "robota"
+adapter = "robota"
+enabled = true
+urls = ["https://robota.ua/zapros/ios/ukraine", "https://robota.ua/zapros/technical-support/ukraine"]
+search_url = "https://robota.ua/zapros/ios/ukraine"
+directory = "imports/robota"
+detail_limit = 10
+
+[[sources]]
+name = "linkedin"
+adapter = "linkedin"
+enabled = true
+urls = []
+search_url = "https://www.linkedin.com/jobs/search/?keywords=iOS%20Developer&location=Ukraine&f_WT=2"
+directory = "imports/linkedin"
+
+[[sources]]
+name = "google_sheets"
+adapter = "tracker"
+enabled = true
+urls = []
+sheet_url = "https://docs.google.com/spreadsheets/d/1oCzB1sCmwIICx7WEa3ukGJQkNLvUEiOj0u4F_TYIbro/edit"
+search_url = "https://docs.google.com/spreadsheets/d/1oCzB1sCmwIICx7WEa3ukGJQkNLvUEiOj0u4F_TYIbro/edit?gid=1506113495"
+directory = "imports/google_sheets"

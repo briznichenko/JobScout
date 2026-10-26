@@ -66,6 +66,10 @@ def render(store, config: dict, run, audit: bool = False) -> str:
     low = sum(row["assessment"]["decision"] != "rejected" and row["assessment"]["score"] < config["report"]["minimum_score"] for row in observed)
     lines.extend([f"- Below report threshold (retained for review): {low}", "", "## Source failures", ""])
     lines.extend([f"- {safe(failure)}" for failure in failures] or ["None."])
+    lines.extend(["", "## Collection coverage", ""])
+    modes = {"dou": "Public RSS", "djinni": "Public RSS", "workua": "Public pages where accessible; saved files also imported", "robota": "Public pages where accessible; saved files also imported", "linkedin": "Saved alerts/JSON only; no automated LinkedIn search", "tracker": "Latest local Sheet export; no authenticated Google Sheets sync"}
+    for source in config["sources"]:
+        lines.append(f"- {safe(source['name'])}: {modes[source['adapter']]}" + (" (disabled)" if not source["enabled"] else ""))
     lines.extend(["", "RSS feeds are rolling, incomplete discovery windows. Absence does not mean a vacancy closed. Previous entries may be stale; last-seen timestamps are shown.", ""])
     return "\n".join(lines)
 

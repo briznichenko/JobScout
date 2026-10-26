@@ -6,13 +6,15 @@ import sys
 import uuid
 from pathlib import Path
 
-from .config import load_config
+from .config import load_config, migrate_sources
 from .model import Vacancy
 from .network import Fetcher
 from .parsers import parse_feed
 from .reporting import write_reports
 from .scoring import assess
-from .sources import ADAPTERS
+from .sources import adapter_for
+from .local_sources import collect_local, read_source_file
+from .tracker import read_tracker
 from .storage import STATUSES, Store
 
 
@@ -31,6 +33,14 @@ def parser() -> argparse.ArgumentParser:
     ingest.add_argument("--adapter", choices=("dou", "djinni"), help="Required for RSS; omit for JSON")
     ingest.add_argument("--complete-snapshot", action="store_true", help="Assert this file is a complete source inventory; two consecutive absences flag potential removal")
     ingest.add_argument("--quiet", action="store_true")
+    tracker = sub.add_parser("import-tracker", help="Import a Google Sheets XLSX/CSV/TSV export, retaining original statuses and notes")
+    tracker.add_argument("file", type=Path)
+    tracker.add_argument("--sheet-name", default="iOS", help="Tab name for CSV/TSV exports")
+    tracker.add_argument("--quiet", action="store_true")
+    source_import = sub.add_parser("import-source", help="Import saved source alerts or structured job pages")
+    source_import.add_argument("file", type=Path)
+    source_import.add_argument("--source", choices=("workua", "robota", "linkedin"), required=True)
+    source_import.add_argument("--quiet", action="store_true")
     report = sub.add_parser("report", help="Regenerate latest report with current statuses")
     report.add_argument("--quiet", action="store_true")
     listing = sub.add_parser("list", help="List stored vacancies, including filtered ones")
@@ -61,6 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     store = None
     try:
         config_path = args.config.resolve()
+        migrate_sources(config_path)
         config = load_config(config_path)
         root = config_path.parent
         database = args.db or root / "data/jobs.sqlite"
@@ -78,8 +89,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Generated {args.output.resolve()}; not installed. Schedule uses Mac local time; machine must be awake or wake later.")
             return 0
         store = Store(database)
-        if args.command in {"scan", "import"}:
-            jobs, failures = [], []
+        if args.command in {"scan", "import", "import-tracker", "import-source"}:
+            jobs, failures, tracker_entries = [], [], []
             if args.command == "scan":
                 sources = [s for s in config["sources"] if s["enabled"] and (not args.source or s["name"] == args.source)]
                 if not sources:
@@ -87,9 +98,19 @@ def main(argv: list[str] | None = None) -> int:
                 fetcher = Fetcher(config["network"])
                 archive = root / "data/raw" / uuid.uuid4().hex
                 for source in sources:
-                    collection = ADAPTERS[source["adapter"]]().collect(source, fetcher, archive / source["adapter"])
-                    jobs.extend(collection.jobs)
-                    failures.extend(collection.failures)
+                    if source["adapter"] in {"tracker", "linkedin", "workua", "robota"}:
+                        local, entries = collect_local(source, root)
+                        jobs.extend(local.jobs)
+                        tracker_entries.extend(entries)
+                        failures.extend(local.failures)
+                    if source["adapter"] not in {"tracker", "linkedin"}:
+                        collection = adapter_for(source["adapter"]).collect(source, fetcher, archive / source["adapter"])
+                        jobs.extend(collection.jobs)
+                        failures.extend(collection.failures)
+            elif args.command == "import-tracker":
+                tracker_entries = read_tracker(args.file.read_bytes(), args.file.suffix, sheet_name=args.sheet_name)
+            elif args.command == "import-source":
+                jobs = read_source_file(args.file, args.source)
             else:
                 if args.complete_snapshot and not args.source:
                     raise ValueError("--complete-snapshot requires --source, and must not be used for rolling feeds or alerts")
@@ -104,6 +125,8 @@ def main(argv: list[str] | None = None) -> int:
             run_id = store.begin(config)
             for job in jobs:
                 store.upsert(job, assess(job, config), run_id)
+            for entry in tracker_entries:
+                store.import_tracker(entry, assess(entry.vacancy, config), run_id)
             if args.command == "import" and args.complete_snapshot:
                 store.complete_snapshot(args.source, {job.url for job in jobs})
             store.finish(run_id, failures)

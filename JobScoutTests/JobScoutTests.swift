@@ -3,18 +3,21 @@ import Testing
 @testable import JobScout
 
 enum Fixtures {
-    static func job(id: Int = 1, status: ApplicationStatus = .new, score: Int = 85, decision: String = "review", role: String = "apple") throws -> Vacancy {
-        let value: [String: Any] = [
+    static func job(id: Int = 1, status: ApplicationStatus = .new, score: Int = 85, decision: String = "review", role: String = "apple", tracker: Bool = false) throws -> Vacancy {
+        var value: [String: Any] = [
             "id": id, "status": status.rawValue, "created": "2026-10-26T10:00:00+00:00", "updated": "2026-10-26T10:00:00+00:00", "kind": "new",
             "payload": ["source": "dou", "url": "https://example.com/\(id)", "title": "Senior iOS Engineer", "company": "Example", "location": "Remote", "salary": "", "published": "", "description": "Swift UIKit API debugging"],
             "assessment": ["score": score, "decision": decision, "role": role, "positive": ["Swift"], "negative": [], "missing": [], "uncertainty": ["Salary unknown"], "rejected": decision == "rejected" ? ["Mandatory relocation"] : [], "components": ["role": 30]],
             "listings": [["source": "dou", "url": "https://example.com/\(id)", "last_seen": "2026-10-26T10:00:00+00:00", "potentially_removed": 0]]
         ]
+        if tracker {
+            value["tracker_entries"] = [["key": "record", "sheet": "iOS", "row": 2, "sheet_url": "https://docs.google.com/spreadsheets/d/test/edit#range=A2", "vacancy_url": "https://www.linkedin.com/jobs/view/1/", "original_status": "No response", "date_sent": "2026-10-01", "struck_out": true, "platform": "linkedin", "fields": ["notes": "Preparation note"]]]
+        }
         return try JSONDecoder().decode(Vacancy.self, from: JSONSerialization.data(withJSONObject: value))
     }
 
     static func snapshot(jobs: [Vacancy]) -> JobSnapshot {
-        JobSnapshot(jobs: jobs, lastRun: nil, workspace: "/tmp/test", reportPath: "/tmp/test/report.md", message: nil, minimumScore: 45, strongThreshold: 70)
+        JobSnapshot(jobs: jobs, lastRun: nil, workspace: "/tmp/test", reportPath: "/tmp/test/report.md", message: nil, minimumScore: 45, strongThreshold: 70, sources: nil)
     }
 
     static let emptyJSON = #"{"jobs":[],"last_run":null,"workspace":"/tmp/test","report_path":"/tmp/test/report.md","minimum_score":45,"strong_threshold":70}"#
@@ -42,6 +45,17 @@ struct VacancyTests {
         #expect(try Fixtures.job().listings.first?.potentiallyRemoved == false)
         let data = Data(#"{"source":"dou","url":"https://example.com/1","last_seen":"today","potentially_removed":1}"#.utf8)
         #expect(try JSONDecoder().decode(SourceListing.self, from: data).potentiallyRemoved)
+    }
+
+    @Test func trackerStatusAndPlatformRemainSeparateFromVacancyData() throws {
+        let job = try Fixtures.job(status: .applied, tracker: true)
+        #expect(job.trackerEntries?.first?.originalStatus == "No response")
+        #expect(job.trackerEntries?.first?.struckOut == true)
+        #expect(job.hasSource("linkedin"))
+        #expect(job.searchableText.contains("Preparation note"))
+        #expect(!job.payload.description.contains("Preparation note"))
+        #expect(Mailbox.tracker.contains(job, minimumScore: 45, strongThreshold: 70))
+        #expect(!Mailbox.inbox.contains(job, minimumScore: 45, strongThreshold: 70))
     }
 }
 

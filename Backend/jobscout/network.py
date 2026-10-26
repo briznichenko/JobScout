@@ -5,6 +5,8 @@ from urllib.parse import urljoin, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from urllib.robotparser import RobotFileParser
 
+from .robots import allowed_by_robots
+
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -16,6 +18,7 @@ class Fetcher:
         self.config = config
         self.opener = build_opener(NoRedirect())
         self.robots = {}
+        self.robot_text = {}
         self.last_request = {}
         self.delays = {}
 
@@ -54,17 +57,19 @@ class Fetcher:
                 parser = RobotFileParser()
                 try:
                     raw = self._request(f"https://{allowed_host}/robots.txt")
-                    parser.parse(raw.decode("utf-8", errors="replace").splitlines())
+                    self.robot_text[allowed_host] = raw.decode("utf-8", errors="replace")
+                    parser.parse(self.robot_text[allowed_host].splitlines())
                 except HTTPError as error:
                     if error.code == 404:
                         parser.parse([])
+                        self.robot_text[allowed_host] = ""
                     else:
                         raise ValueError(f"Cannot verify robots.txt (HTTP {error.code}); collection stopped") from error
                 self.robots[allowed_host] = parser
                 delay = parser.crawl_delay(self.config["user_agent"]) or parser.crawl_delay("*") or 0
                 rate = parser.request_rate(self.config["user_agent"]) or parser.request_rate("*")
                 self.delays[allowed_host] = max(delay, rate.seconds / rate.requests if rate else 0)
-            if not self.robots[allowed_host].can_fetch(self.config["user_agent"], url):
+            if not allowed_by_robots(self.robot_text[allowed_host], self.config["user_agent"], url):
                 raise ValueError("Collection disallowed by robots.txt")
             try:
                 return self._request(url)

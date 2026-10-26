@@ -86,5 +86,12 @@ func readableDate(_ value: String) -> String {
 }
 
 func sourceName(_ source: String) -> String {
-    source == "dou" ? "DOU" : source.capitalized
+    switch source {
+    case "dou": "DOU"
+    case "workua": "Work.ua"
+    case "robota": "Robota.ua"
+    case "linkedin": "LinkedIn"
+    case "google_sheets": "Google Sheets"
+    default: source.capitalized
+    }
 }

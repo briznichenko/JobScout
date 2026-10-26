@@ -76,7 +76,18 @@ Regex heuristics are intentionally limited. They can miss unfamiliar wording, la
 
 ## Alerts and local import
 
-Robota.ua, Work.ua, LinkedIn and Glassdoor do not have live adapters in this MVP. Use their official alerts, then manually normalize permitted content to JSON. No mailbox integration, email parsing, login automation, CAPTCHA bypass, or scraping of those platforms is included.
+Work.ua and Robota.ua have public-page adapters plus saved structured-HTML/EML/JSON imports. Both currently return HTTP 403 from this runtime, and searches report those failures. LinkedIn accepts saved EML alerts or normalized JSON only; no LinkedIn crawler is provided. Glassdoor remains manual JSON import. No mailbox integration, login automation, or CAPTCHA bypass is included.
+
+Import tracker exports and saved source files:
+
+```sh
+python3 -m jobscout import-tracker tracker.xlsx
+python3 -m jobscout import-tracker ios.csv --sheet-name iOS
+python3 -m jobscout import-source alert.eml --source linkedin
+python3 -m jobscout import-source job.html --source workua
+```
+
+The GUI additionally saves imported files to its Application Support inbox for future searches. CLI imports are one-time unless you put files into the matching configured `imports/` directory. Tracker rows preserve original statuses, strikethrough, notes, and preparation gaps; those notes are not scored as vacancy requirements. Local status edits are preserved on later tracker refreshes. Private Google Sheets need an authenticated browser export; the runtime does not read browser sessions or credentials.
 
 `examples/alerts.json` is an importable **synthetic demonstration**, not real vacancies. Each object accepts `source`, `url`, `title`, `description`, and optional `company`, `location`, `salary`, `published`, `raw`. URLs must be HTTP(S). Keep missing details empty. Import is validated before database mutation.
 

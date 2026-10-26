@@ -30,6 +30,7 @@ struct SidebarView: View {
                     row(.ignored)
                 }
                 Section("Review") {
+                    row(.tracker)
                     row(.audit)
                     row(.all)
                 }

@@ -13,7 +13,12 @@ def canonical_url(url: str) -> str:
     if parts.scheme not in {"http", "https"} or not parts.hostname or parts.username:
         raise ValueError("Vacancy URL must be a public HTTP(S) URL without credentials")
     query = [(k, v) for k, v in parse_qsl(parts.query) if not k.startswith("utm_") and k not in {"from", "ref"}]
-    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path or "/", urlencode(sorted(query)), ""))
+    fragment = parts.fragment if parts.hostname == "docs.google.com" and "/spreadsheets/" in parts.path else ""
+    if parts.hostname in {"www.linkedin.com", "linkedin.com"} and (match := re.search(r"/jobs/view/(?:[^/?]*-)?(\d+)/?", parts.path)):
+        return f"https://www.linkedin.com/jobs/view/{match[1]}/"
+    if parts.hostname in {"jobs.dou.ua", "djinni.co", "www.work.ua", "work.ua", "robota.ua"}:
+        query = []
+    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path or "/", urlencode(sorted(query)), fragment))
 
 
 @dataclass
