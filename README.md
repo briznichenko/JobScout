@@ -26,6 +26,8 @@ The configured sources are DOU, Djinni, Work.ua, Robota.ua, LinkedIn, and Google
 
 DOU/Djinni use RSS. Work.ua and Robota.ua use optional Playwright/Chromium collection, with isolated temporary contexts, robots checks, two pages per search and 20 detail fetches per source by default. They parse JobPosting JSON-LD when present and site-specific detail markup otherwise. Overlapping searches share a detail budget and cache; cached descriptions are reused for 24 hours. New details and due refreshes share the budget. A capped search is reported as partial coverage, and absence from a search never marks a vacancy removed. Existing configs retain their explicit budgets; missing transport, pagination and refresh settings use the new defaults.
 
+The detail budget rotates across configured searches, so iOS/macOS results cannot consume every slot before support gets a turn. Within each search, titles matching your existing Apple/support role patterns get priority for detail fetching. This only changes fetch order: other results remain eligible, and scoring and Inbox thresholds stay unchanged. Override the source's `priority_titles` regex list in TOML if needed; an empty list preserves site order.
+
 Install browser support once from the repository root:
 
 ```sh
@@ -39,6 +41,8 @@ cd Backend
 Set **Settings → Python executable** to the absolute path of `Build/browser-runtime/bin/python`, then choose **Save & reload**. Settings checks browser readiness using that interpreter. The virtual environment and downloaded browser are local runtime dependencies, not bundled application resources. DOU/Djinni and imports still work with standard-library Python without Playwright. Package installation follows the [Playwright library setup](https://playwright.dev/python/docs/library).
 
 On 2026-10-29, the local browser collector fetched a Work.ua search and parsed two real details successfully; plain HTTP requests still returned 403. Robota.ua remained a loading shell in the automated browser and verification requests failed, although its pages were readable in the in-app browser. Its adapter is covered by controlled fixtures; unattended live collection is not confirmed. A verification challenge, access denial or unreadable robots policy stops collection for that site. Saved rendered detail pages with their canonical URLs, EML and JSON imports remain available.
+
+A follow-up fixed an overly broad frame restriction: Robota.ua's Cloudflare verification iframe can load, while top-level navigation remains restricted to the source host. Live testing still received HTTP 403 from Robota.ua's page data service, so this correction does not establish working unattended collection. The source reports that denial explicitly; no verification interaction or credential/session import is automated.
 
 LinkedIn is a saved-alert source, not a live crawler. Its published policy prohibits automated scraping. Use **Search → Open LinkedIn Search** to browse manually, then import saved email alerts with direct job links or manually normalized JSON. Tracking/login links are never followed. Email-wide text is not treated as the description of each job, preventing one vacancy's requirements from filtering another.
 

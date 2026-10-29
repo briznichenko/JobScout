@@ -1,5 +1,7 @@
 import json
 import re
+from collections import deque
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
@@ -177,7 +179,13 @@ def page_number(url):
     return int(match[1] if match else parse_qs(parts.query).get("page", ["1"])[0])
 
 
-def parse_search(data, url, host):
+@dataclass(frozen=True)
+class SearchPage:
+    cards: list[tuple[str, str]]
+    next_url: str | None
+
+
+def parse_search_page(data, url, host):
     root = Document(data).root
     scope = root.find(lambda n: n.attrs.get("id") == "pjax-jobs-list") if host == "www.work.ua" else root.find(lambda n: n.tag == "alliance-jobseeker-desktop-vacancies-list")
     candidates = {}
@@ -194,7 +202,7 @@ def parse_search(data, url, host):
                 ancestor = ancestor.parent
             target = job_url(urljoin(url, node.attrs.get("href", "")), host)
             if eligible and not excluded and target:
-                candidates[identity(target)] = target
+                candidates[identity(target)] = (target, text(node))
     if not candidates and not re.search(r"(?i)вакансій не знайдено|вакансии не найдены|нічого не знайдено|ничего не найдено|no (?:jobs|results) found|\b0 ваканс", text(root)):
         raise ValueError("No search cards or explicit empty-search marker; page loading or format needs review")
     current = page_number(url)
@@ -221,7 +229,12 @@ def parse_search(data, url, host):
                 pages.append(target)
         except (ValueError, TypeError, AttributeError):
             continue
-    return list(candidates.values()), next(iter(pages), None)
+    return SearchPage(list(candidates.values()), next(iter(pages), None))
+
+
+def parse_search(data, url, host):
+    page = parse_search_page(data, url, host)
+    return [url for url, title in page.cards], page.next_url
 
 
 class PublicPageAdapter:
@@ -231,6 +244,8 @@ class PublicPageAdapter:
         result = Collection()
         archive.mkdir(parents=True, exist_ok=True)
         candidates = {}
+        owners = {}
+        titles = {}
         visited = set()
         stopped = False
 
@@ -249,8 +264,13 @@ class PublicPageAdapter:
                 try:
                     raw = load(url)
                     (archive / f"search-{index}-{page_index}.html").write_bytes(raw)
-                    links, following = parse_search(raw, url, self.host)
-                    candidates.update((identity(target), target) for target in links)
+                    page = parse_search_page(raw, url, self.host)
+                    following = page.next_url
+                    for target, title in page.cards:
+                        key = identity(target)
+                        candidates[key] = target
+                        titles[key] = title
+                        owners.setdefault(key, index)
                     if following and page_index + 1 == source.get("page_limit", 2):
                         result.failures.append(f"{source['name']} [{url}]: Partial coverage: search page limit reached")
                     url = following
@@ -270,15 +290,26 @@ class PublicPageAdapter:
                     result.jobs.append(Vacancy(**json.loads(entry["payload"])))
                     continue
             pending.append((key, target, entry))
-        pending.sort(key=lambda item: item[2]["attempted"] if item[2] else "")
-        new = [item for item in pending if not item[2] or not item[2]["payload"]]
-        refresh = [item for item in pending if item[2] and item[2]["payload"]]
+        priority = source.get("priority_titles", [])
+        pending.sort(key=lambda item: (item[2]["attempted"] if item[2] else "",
+                                      not any(re.search(pattern, titles[item[0]], re.I) for pattern in priority)))
+        queues = []
+        for index in range(len(source["urls"])):
+            group = [item for item in pending if owners[item[0]] == index]
+            new = deque(item for item in group if not item[2] or not item[2]["payload"])
+            refresh = deque(item for item in group if item[2] and item[2]["payload"])
+            queue = deque()
+            while new or refresh:
+                if refresh:
+                    queue.append(refresh.popleft())
+                if new:
+                    queue.append(new.popleft())
+            queues.append(queue)
         pending = []
-        for index in range(max(len(new), len(refresh))):
-            if index < len(refresh):
-                pending.append(refresh[index])
-            if index < len(new):
-                pending.append(new[index])
+        while any(queues):
+            for queue in queues:
+                if queue:
+                    pending.append(queue.popleft())
         budget = source.get("detail_limit", 10)
         if len(pending) > budget:
             result.failures.append(f"{source['name']} [details]: Partial coverage: {len(pending) - budget} detail pages deferred by budget")

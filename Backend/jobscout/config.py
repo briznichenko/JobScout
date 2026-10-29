@@ -50,6 +50,11 @@ def load_config(path: Path) -> dict:
             raise ValueError("Enabled sources require at least one feed URL")
         if source["adapter"] in {"workua", "robota"}:
             source.setdefault("transport", "browser")
+            priorities = source.setdefault("priority_titles", config["rules"]["apple_titles"] + config["rules"]["support_titles"])
+            if not isinstance(priorities, list) or any(not isinstance(value, str) for value in priorities):
+                raise ValueError("priority_titles must be a list of regular expressions")
+            for pattern in priorities:
+                re.compile(pattern, re.I)
             if source["transport"] not in {"http", "browser"}:
                 raise ValueError("Public-page transport must be http or browser")
             for key, default in (("page_limit", 2), ("detail_limit", 20), ("refresh_hours", 24)):

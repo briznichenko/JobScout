@@ -9,6 +9,7 @@ import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
 from jobscout.browser import AccessDenied, BrowserSession
 from jobscout.cli import main
@@ -162,6 +163,26 @@ class CrawlerTests(unittest.TestCase):
         self.assertEqual(result.jobs[0].title, "Updated iOS")
         self.assertIn(WORK + "/jobs/5/", calls)
 
+    def test_detail_budget_is_shared_across_searches(self):
+        source = self.source | {"urls": [WORK + "/jobs-ios/", WORK + "/jobs-macos/", WORK + "/jobs-technical+support/"], "detail_limit": 3}
+        pages = {WORK + "/jobs-ios/": work_search([1, 2, 3, 4]),
+                 WORK + "/jobs-macos/": work_search([5, 6]),
+                 WORK + "/jobs-technical+support/": work_search([7, 8])}
+        pages.update({WORK + f"/jobs/{i}/": work_detail() for i in range(1, 9)})
+        result, calls = self.collect(pages, source)
+        self.assertEqual([job.url for job in result.jobs], [WORK + "/jobs/1/", WORK + "/jobs/5/", WORK + "/jobs/7/"])
+
+    def test_technical_titles_get_details_before_generic_support_without_dropping_either(self):
+        source = self.source | {"detail_limit": 1, "priority_titles": [r"technical support"]}
+        search = work_search([1, 2]).replace(b'>iOS Engineer</a>', b'>Call centre operator</a>', 1)
+        search = search.replace(b'>iOS Engineer</a>', b'>Technical Support Engineer</a>')
+        pages = {WORK + "/jobs-ios/": search, WORK + "/jobs/1/": work_detail("Call centre operator"), WORK + "/jobs/2/": work_detail("Technical Support Engineer")}
+        first, _ = self.collect(pages, source)
+        self.assertEqual(first.jobs[0].title, "Technical Support Engineer")
+        second, calls = self.collect(pages, source)
+        self.assertEqual(len(second.jobs), 2)
+        self.assertIn(WORK + "/jobs/1/", calls)
+
     def test_access_denial_stops_host_without_switching_transport(self):
         result, calls = self.collect({WORK + "/jobs-ios/": AccessDenied("HTTP 403")}, self.source | {"urls": [WORK + "/jobs-ios/", WORK + "/jobs-swift/"]})
         self.assertEqual(calls, [WORK + "/jobs-ios/"])
@@ -198,6 +219,46 @@ class CrawlerTests(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get("JOBSCOUT_BROWSER_TESTS") == "1", "Set JOBSCOUT_BROWSER_TESTS=1 with Playwright and Chromium installed")
 class BrowserIntegrationTests(unittest.TestCase):
+    def test_robota_data_denial_is_reported_separately_from_loading_timeout(self):
+        config = load_config(ROOT / "config.toml")["network"] | {"delay_seconds": 0, "timeout_seconds": 3}
+        with BrowserSession(config) as session:
+            context = session._context("robota.ua")
+            context.set_default_timeout(300)
+            def respond(route):
+                if route.request.url.endswith("robots.txt"):
+                    route.fulfill(status=200, content_type="text/plain", body="User-agent: *\nAllow: /")
+                elif urlsplit(route.request.url).hostname == "ua-api.robota.ua":
+                    route.fulfill(status=403, headers={"Access-Control-Allow-Origin": "*"}, body="Forbidden")
+                else:
+                    route.fulfill(status=200, content_type="text/html", body='<h1>Loading</h1><script>fetch("https://ua-api.robota.ua/search")</script>')
+            context.route("**/*", respond)
+            with self.assertRaisesRegex(AccessDenied, "page data request.*403"):
+                session.get(ROBOTA + "/zapros/ios/ukraine", "robota.ua", adapter="robota")
+
+    def test_verification_subframe_can_render_but_cannot_navigate_the_top_level(self):
+        config = load_config(ROOT / "config.toml")["network"] | {"delay_seconds": 0, "timeout_seconds": 3}
+        with BrowserSession(config) as session:
+            context = session._context("robota.ua")
+            def respond(route):
+                if route.request.url.endswith("robots.txt"):
+                    route.fulfill(status=200, content_type="text/plain", body="User-agent: *\nAllow: /")
+                elif route.request.url.startswith("https://challenges.cloudflare.com"):
+                    route.fallback()
+                else:
+                    route.fulfill(status=200, content_type="text/html", body='<iframe src="https://challenges.cloudflare.com/frame"></iframe><script>addEventListener("message",event=>{if(event.origin==="https://challenges.cloudflare.com")document.body.insertAdjacentHTML("beforeend",\'<div id="description-wrap">Swift requirements</div>\')})</script>')
+            context.route("**/*", respond)
+            def respond_frame(route):
+                request = route.request
+                if request.frame.parent_frame is None:
+                    route.fallback()
+                else:
+                    route.fulfill(status=200, content_type="text/html", body='<script>parent.postMessage("ready", "https://robota.ua")</script>')
+            context.route("https://challenges.cloudflare.com/**", respond_frame)
+            raw = session.get(ROBOTA + "/company42/vacancy1", "robota.ua", adapter="robota", detail=True)
+            self.assertIn(b'Swift requirements', raw)
+            with self.assertRaises(ValueError):
+                session.get("https://challenges.cloudflare.com/frame", "robota.ua", adapter="robota")
+
     def test_robots_denial_prevents_search_navigation(self):
         config = load_config(ROOT / "config.toml")["network"] | {"delay_seconds": 0, "timeout_seconds": 3}
         with BrowserSession(config) as session:

@@ -70,6 +70,10 @@ class BrowserSession:
                 request = route.request
                 if request.is_navigation_request():
                     parts = urlsplit(request.url)
+                    is_subframe = request.frame.parent_frame is not None
+                    if is_subframe and parts.scheme == "https" and parts.netloc == "challenges.cloudflare.com":
+                        route.continue_()
+                        return
                     if parts.scheme != "https" or parts.netloc != host:
                         route.abort()
                         return
@@ -129,7 +133,9 @@ class BrowserSession:
         page = context.new_page()
         page.on("dialog", lambda dialog: dialog.dismiss())
         verification_failures = []
+        denied_data = []
         page.on("requestfailed", lambda request: verification_failures.append(request.url) if urlsplit(request.url).hostname == "challenges.cloudflare.com" else None)
+        page.on("response", lambda response: denied_data.append(response.status) if adapter == "robota" and urlsplit(response.url).hostname == "ua-api.robota.ua" and response.status in {401, 403, 429} else None)
         try:
             self._navigate(page, url, host, delay)
             selector = "#job-description" if adapter == "workua" else "#description-wrap"
@@ -156,7 +162,9 @@ class BrowserSession:
             except Exception:
                 raw, challenge, title = b"", False, ""
             failure = error if isinstance(error, (AccessDenied, ValueError)) else ValueError(f"Browser page did not become readable within the timeout ({title}): {error}")
-            if challenge:
+            if denied_data:
+                failure = AccessDenied(f"Robota.ua denied a page data request (HTTP {denied_data[0]}); automated collection stopped. Open the search in a regular browser or import a saved rendered vacancy page.")
+            elif challenge:
                 failure = AccessDenied("Site verification is required; automated collection stopped. Import a saved rendered vacancy page instead.")
             if len(raw) <= self.config["max_bytes"]:
                 failure.page_html = raw
