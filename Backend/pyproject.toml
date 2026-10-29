@@ -9,6 +9,9 @@ description = "Local, deterministic vacancy discovery and fit scoring"
 requires-python = ">=3.12"
 dependencies = []
 
+[project.optional-dependencies]
+browser = ["playwright>=1.48,<2"]
+
 [project.scripts]
 jobscout = "jobscout.cli:main"
 

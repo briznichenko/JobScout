@@ -1,6 +1,6 @@
 # Personal JobScout
 
-A local Python 3.12+ CLI for Andrii's Apple engineering and technical support search. SQLite stores vacancies, source entries, description versions, scan events, and application statuses. The runtime uses only Python's standard library: no subscriptions, API keys, LLM calls, backend, or frontend.
+A local Python 3.12+ CLI for Andrii's Apple engineering and technical support search. SQLite stores vacancies, source entries, description versions, scan events, and application statuses. Feeds and imports use Python's standard library; live Work.ua/Robota.ua pages use optional Playwright/Chromium. No subscriptions, API keys or LLM calls.
 
 ## Run
 
@@ -19,7 +19,7 @@ The scan prints Markdown and saves `reports/latest.md`, a numbered report, and a
 
 `sources.py` contains DOU and Djinni RSS adapters. `parsers.py` converts RSS and HTML descriptions into `Vacancy` objects. `scoring.py` knows nothing about websites; it evaluates a vacancy against `config.toml`. `storage.py` manages SQLite identity/history, and `reporting.py` writes concise reports. `cli.py` connects these stages. `network.py` handles HTTPS, robots rules, bounded retries, timeouts, and per-host delays.
 
-This MVP deliberately uses published feeds instead of listing-page scraping. Both DOU's iOS category and Djinni's RSS feed were fetched successfully on 2026-10-26. Current robots rules allow these paths. Feed availability and publisher policies can change; robots checks run on every scan. Robots permission is not a substitute for site terms. See the publisher links below when maintaining adapters.
+DOU and Djinni use published feeds. Both DOU's iOS category and Djinni's RSS feed were fetched successfully on 2026-10-26. Feed availability and publisher policies can change; robots checks run on every scan. Robots permission is not a substitute for site terms. See the publisher links below when maintaining adapters.
 
 Default discovery covers DOU iOS/macOS and Support, plus Djinni iOS, Support, macOS and Swift searches. Search feeds can overlap. A successful scan is not proof of exhaustive coverage. RSS windows are limited; company, location, compensation and requirements may be missing. No authenticated results or detail-page enrichment is implemented.
 
@@ -76,7 +76,21 @@ Regex heuristics are intentionally limited. They can miss unfamiliar wording, la
 
 ## Alerts and local import
 
-Work.ua and Robota.ua have public-page adapters plus saved structured-HTML/EML/JSON imports. Both currently return HTTP 403 from this runtime, and searches report those failures. LinkedIn accepts saved EML alerts or normalized JSON only; no LinkedIn crawler is provided. Glassdoor remains manual JSON import. No mailbox integration, login automation, or CAPTCHA bypass is included.
+Work.ua and Robota.ua have public-page adapters plus saved rendered-HTML/EML/JSON imports. Browser transport is the default; install it from this directory with a separate environment:
+
+```sh
+python3 -m venv ../Build/browser-runtime
+../Build/browser-runtime/bin/python -m pip install 'playwright>=1.48,<2'
+../Build/browser-runtime/bin/python -m playwright install chromium
+../Build/browser-runtime/bin/python -m jobscout doctor
+../Build/browser-runtime/bin/python -m jobscout scan --source workua
+```
+
+Use that environment's absolute Python path in the macOS app's Settings and when generating a launch agent. Installation follows the [official Playwright instructions](https://playwright.dev/python/docs/library). Browser contexts are temporary and don't read your existing browser profile. The declared collector user agent is retained. Denial or a verification challenge stops that site's collection.
+
+Each public-page source supports `transport = "browser"` (or `"http"`), `page_limit = 2`, `detail_limit = 20`, and `refresh_hours = 24`. Missing keys in older configs use these defaults; explicit existing limits are preserved. Pagination follows observed links on the same search and host. Detail IDs deduplicate overlapping searches. Fresh cached descriptions are reused, while due refreshes and new details share the request budget. Cache fetch times are separate from publication dates; unsuccessful attempts move behind unattempted candidates. Budget exhaustion is reported as partial coverage, not exhaustive success. It never triggers removal detection.
+
+Work.ua live browser extraction passed one search and two details on 2026-10-29. Plain HTTP returned 403. Robota.ua's automated search remained a loading shell with failed verification requests; its live unattended collection remains unverified. It is supported by parser and browser fixtures, and saved rendered vacancy HTML must include its canonical or Open Graph URL. Failed browser pages are archived within the response-size cap for diagnosis. LinkedIn accepts saved EML alerts or normalized JSON only; no LinkedIn crawler is provided. Glassdoor remains manual JSON import. No mailbox integration or login automation is included.
 
 Import tracker exports and saved source files:
 
@@ -130,7 +144,7 @@ Time uses the Mac's local timezone. A sleeping Mac may run after wake; a powered
 launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.personal.jobscout.plist
 ```
 
-Scheduling has not been installed automatically. Do not launch overlapping manual/scheduled scans; SQLite serializes writes, but duplicate concurrent network collection is wasteful.
+Scheduling has not been installed automatically. A per-database file lock rejects overlapping scans across CLI and GUI. SIGTERM closes browser resources and releases that lock; committed detail-cache records survive cancellation. Other database commands remain available during collection.
 
 ## Verification and maintenance
 

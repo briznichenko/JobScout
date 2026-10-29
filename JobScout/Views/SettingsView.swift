@@ -26,6 +26,13 @@ struct SettingsView: View {
                         .textFieldStyle(.roundedBorder)
                     Button("Save & reload") { store.saveSettings() }
                         .disabled(store.isBusy)
+                    if let browser = store.snapshot?.browser {
+                        Label(browser.ready ? "Browser collection ready" : "Browser setup required", systemImage: browser.ready ? "checkmark.circle" : "exclamationmark.circle")
+                            .foregroundStyle(browser.ready ? Color.secondary : Color.orange)
+                        Text(browser.message)
+                            .font(.caption)
+                            .textSelection(.enabled)
+                    }
                 }
                 .padding(10)
             }

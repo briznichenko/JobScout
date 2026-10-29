@@ -48,7 +48,15 @@ def load_config(path: Path) -> dict:
             raise ValueError(f"Unknown adapter: {source['adapter']}")
         if source["enabled"] and source["adapter"] not in {"linkedin", "tracker"} and not source["urls"]:
             raise ValueError("Enabled sources require at least one feed URL")
-        allowed = {"dou": {"category", "search"}, "djinni": {"primary_keyword", "all_keywords", "any_of_keywords", "search_type"}}
+        if source["adapter"] in {"workua", "robota"}:
+            source.setdefault("transport", "browser")
+            if source["transport"] not in {"http", "browser"}:
+                raise ValueError("Public-page transport must be http or browser")
+            for key, default in (("page_limit", 2), ("detail_limit", 20), ("refresh_hours", 24)):
+                value = source.setdefault(key, default)
+                if type(value) is not int or value < 1:
+                    raise ValueError(f"{key} must be a positive integer")
+        allowed = {"dou": {"category", "search"}, "djinni": {"primary_keyword", "all_keywords", "any_of_keywords", "search_type"}, "workua": {"page"}}
         for url in source["urls"]:
             unknown = parse_qs(urlsplit(url).query).keys() - allowed.get(source["adapter"], set())
             if unknown:

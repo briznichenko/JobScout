@@ -15,7 +15,7 @@ The app includes an independent copy of the crawler under `Backend/`; it does no
 - Select a vacancy to read its description, score breakdown, missing requirements, uncertainties, and rejection evidence.
 - Change the application status to Interested, Applied, Rejected, or Ignored. This persists in SQLite and survives scans. Filter rejection is separate from application rejection.
 - **Filter audit** exposes automatic rejections; **All vacancies** retains low scores and dismissed jobs.
-- **Import** accepts Google Sheets tracker exports, normalized JSON alerts, DOU/Djinni RSS, Work.ua/Robota.ua structured job HTML, and saved EML job alerts. LinkedIn imports accept EML/JSON only.
+- **Import** accepts Google Sheets tracker exports, normalized JSON alerts, DOU/Djinni RSS, Work.ua/Robota.ua rendered vacancy HTML, and saved EML job alerts. LinkedIn imports accept EML/JSON only.
 - **Application tracker** shows imported application records. The detail view retains original status text, dates, notes, preparation gaps, retrospectives, and strikethrough flags. Exact vacancy URLs join existing listings without replacing their full descriptions. New live data can enrich a tracker-only entry.
 - **Report** generates and opens the current Markdown summary. ⌘R reloads stored data without crawling.
 - **Settings** configures your Python executable and opens the scoring rules or data folder. Edit the rules in your preferred text editor, save, then choose **Recalculate scores**.
@@ -24,7 +24,21 @@ The app includes an independent copy of the crawler under `Backend/`; it does no
 
 The configured sources are DOU, Djinni, Work.ua, Robota.ua, LinkedIn, and Google Sheets. Settings shows their collection mode, saved count, import inbox, browser search link, and latest errors. The source picker includes configured sources even before their first result. Tracker entries also appear under the original job platform when its URL identifies one.
 
-DOU/Djinni use RSS. Work.ua and Robota.ua adapters attempt public pages with robots checks and a maximum of 10 detail pages per source per run. They parse standard JobPosting JSON-LD. On 2026-10-26 both sites returned HTTP 403 from this runtime; this is reported as a source failure, while successful results from other sources are saved. No challenge, authentication, or denial is bypassed. Their structured-page parsers are fixture-tested; live collection remains unverified until access becomes available.
+DOU/Djinni use RSS. Work.ua and Robota.ua use optional Playwright/Chromium collection, with isolated temporary contexts, robots checks, two pages per search and 20 detail fetches per source by default. They parse JobPosting JSON-LD when present and site-specific detail markup otherwise. Overlapping searches share a detail budget and cache; cached descriptions are reused for 24 hours. New details and due refreshes share the budget. A capped search is reported as partial coverage, and absence from a search never marks a vacancy removed. Existing configs retain their explicit budgets; missing transport, pagination and refresh settings use the new defaults.
+
+Install browser support once from the repository root:
+
+```sh
+python3 -m venv Build/browser-runtime
+Build/browser-runtime/bin/python -m pip install 'playwright>=1.48,<2'
+Build/browser-runtime/bin/python -m playwright install chromium
+cd Backend
+../Build/browser-runtime/bin/python -m jobscout doctor
+```
+
+Set **Settings → Python executable** to the absolute path of `Build/browser-runtime/bin/python`, then choose **Save & reload**. Settings checks browser readiness using that interpreter. The virtual environment and downloaded browser are local runtime dependencies, not bundled application resources. DOU/Djinni and imports still work with standard-library Python without Playwright. Package installation follows the [Playwright library setup](https://playwright.dev/python/docs/library).
+
+On 2026-10-29, the local browser collector fetched a Work.ua search and parsed two real details successfully; plain HTTP requests still returned 403. Robota.ua remained a loading shell in the automated browser and verification requests failed, although its pages were readable in the in-app browser. Its adapter is covered by controlled fixtures; unattended live collection is not confirmed. A verification challenge, access denial or unreadable robots policy stops collection for that site. Saved rendered detail pages with their canonical URLs, EML and JSON imports remain available.
 
 LinkedIn is a saved-alert source, not a live crawler. Its published policy prohibits automated scraping. Use **Search → Open LinkedIn Search** to browse manually, then import saved email alerts with direct job links or manually normalized JSON. Tracking/login links are never followed. Email-wide text is not treated as the description of each job, preventing one vacancy's requirements from filtering another.
 
@@ -42,7 +56,7 @@ Live data is stored in `~/Library/Application Support/JobScout/`:
 
 - `config.toml`: your own copy of profile, filters, sources, and weights.
 - `data/jobs.sqlite`: persistent vacancies, history, and statuses.
-- `data/raw/`: archived RSS responses.
+- `data/raw/`: archived feeds and rendered pages, including bounded failure diagnostics.
 - `reports/`: Markdown reports and rejection audits.
 - `imports/`: private tracker exports and saved source files.
 
@@ -61,7 +75,7 @@ cd Backend
 python3 -m jobscout --config "$HOME/Library/Application Support/JobScout/config.toml" scan
 ```
 
-The app must have launched once to initialize that config. Use the same `--config` argument for CLI status, report, and launchd commands. The GUI does not install a background schedule. Avoid a manual scan while a scheduled CLI scan is running; the GUI serializes its own operations, while SQLite protects commits across processes. See `Backend/README.md` for all crawler commands and its limitations.
+The app must have launched once to initialize that config. Use the browser-enabled interpreter above for live page collection, and the same `--config` argument for CLI status, report, and launchd commands. The GUI does not install a background schedule. A per-database file lock rejects overlapping CLI/GUI scans. See `Backend/README.md` for all crawler commands and its limitations.
 
 ## Swift decisions to study
 
@@ -70,6 +84,8 @@ The app must have launched once to initialize that config. Use the same `--confi
 The process boundary returns immutable `Decodable & Sendable` values. Neither SQLite connections nor Foundation `Process` objects cross into UI code. `BackendClient` owns processes in an actor. Its termination handler resumes a checked continuation; process-launch failure and termination both remove the pending entry before resuming, guarding against double resume. Quitting waits for cancellation so the crawler is not left running in the background.
 
 Awaiting a process makes the actor reentrant. The UI's busy gate remains set across that suspension, preventing a second operation from racing a scan or status update. Cancellation forwards to the actor, sends termination to Python, and waits for process exit before releasing that gate. Cancellation can happen after SQLite committed, so the app offers refresh instead of claiming a rollback. This is an interview-worthy distinction: task cancellation is a cooperative signal, not a guarantee that side effects were undone.
+
+Python handles termination by unwinding its resource scopes: pages, Chromium and the Playwright driver close before the scan lock is released. Successful detail-cache writes survive interruption and can be ingested by a later scan. Application statuses and completed scan data remain in SQLite; a cancelled uncommitted run is rolled back.
 
 Output goes to temporary files instead of pipes. That avoids deadlock when one output pipe fills while code drains the other. The actor cleans the temporary files on completion; neither `waitUntilExit()` nor pipe reads block the main actor.
 
@@ -90,4 +106,11 @@ python3 -B -m unittest discover -v
 
 Use `arch=x86_64` on an Intel Mac. A normal build targets the current machine. Swift 6 language mode and complete strict-concurrency checking are enabled in the project, including the test target.
 
-The expanded release passes **10 Swift tests and 59 Python tests**, including tracker decoding and status preservation, exact-URL joining, later live enrichment, source-file imports, robots wildcard rules, blocked access, and configuration migration. Test-host launches skip automatic workspace loading. The retained source limitation still applies: RSS discovery is incomplete, and regex fit scoring requires human review.
+The tests cover tracker/status preservation, DOM fallbacks, pagination, cache refresh, budgets, partial failures, robots rules, access denial, scan locking and configuration migration. Optional real-Chromium tests cover delayed rendering, redirect restrictions and SIGTERM cleanup of browser descendants:
+
+```sh
+cd Backend
+JOBSCOUT_BROWSER_TESTS=1 ../Build/browser-runtime/bin/python -m unittest discover -v
+```
+
+These browser tests use controlled pages and don't depend on live job sites. Test-host launches skip automatic workspace loading. Live discovery is incomplete, and regex fit scoring requires human review.

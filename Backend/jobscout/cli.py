@@ -4,6 +4,7 @@ import plistlib
 import sqlite3
 import sys
 import uuid
+from contextlib import ExitStack
 from pathlib import Path
 
 from .config import load_config, migrate_sources
@@ -16,6 +17,8 @@ from .sources import adapter_for
 from .local_sources import collect_local, read_source_file
 from .tracker import read_tracker
 from .storage import STATUSES, Store
+from .browser import BrowserSession, browser_status
+from .lifecycle import ScanCancelled, cancellation_scope, scan_lock
 
 
 def parser() -> argparse.ArgumentParser:
@@ -24,9 +27,10 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument("--db", type=Path, help="Default: data/jobs.sqlite beside config")
     cli.add_argument("--reports", type=Path, help="Default: reports/ beside config")
     sub = cli.add_subparsers(dest="command", required=True)
-    scan = sub.add_parser("scan", help="Collect enabled public RSS feeds")
+    scan = sub.add_parser("scan", help="Collect enabled feeds, public pages and imports")
     scan.add_argument("--source", help="Only this configured source")
     scan.add_argument("--quiet", action="store_true")
+    sub.add_parser("doctor", help="Check optional browser support for this Python interpreter")
     ingest = sub.add_parser("import", help="Import local JSON alerts or saved RSS")
     ingest.add_argument("file", type=Path)
     ingest.add_argument("--source", help="Override source name for every imported entry")
@@ -69,7 +73,12 @@ def main(argv: list[str] | None = None) -> int:
     cli = parser()
     args = cli.parse_args(argv)
     store = None
+    resources = ExitStack()
     try:
+        if args.command == "doctor":
+            status = browser_status()
+            print(status["message"])
+            return 0 if status["ready"] else 1
         config_path = args.config.resolve()
         migrate_sources(config_path)
         config = load_config(config_path)
@@ -88,6 +97,9 @@ def main(argv: list[str] | None = None) -> int:
             args.output.write_bytes(plistlib.dumps(definition))
             print(f"Generated {args.output.resolve()}; not installed. Schedule uses Mac local time; machine must be awake or wake later.")
             return 0
+        if args.command == "scan":
+            resources.enter_context(scan_lock(database))
+            resources.enter_context(cancellation_scope())
         store = Store(database)
         if args.command in {"scan", "import", "import-tracker", "import-source"}:
             jobs, failures, tracker_entries = [], [], []
@@ -96,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
                 if not sources:
                     raise ValueError("No matching enabled sources")
                 fetcher = Fetcher(config["network"])
+                browser = resources.enter_context(BrowserSession(config["network"]))
                 archive = root / "data/raw" / uuid.uuid4().hex
                 for source in sources:
                     if source["adapter"] in {"tracker", "linkedin", "workua", "robota"}:
@@ -104,7 +117,9 @@ def main(argv: list[str] | None = None) -> int:
                         tracker_entries.extend(entries)
                         failures.extend(local.failures)
                     if source["adapter"] not in {"tracker", "linkedin"}:
-                        collection = adapter_for(source["adapter"]).collect(source, fetcher, archive / source["adapter"])
+                        adapter = adapter_for(source["adapter"])
+                        options = {"browser": browser, "cache": store} if source["adapter"] in {"workua", "robota"} else {}
+                        collection = adapter.collect(source, fetcher, archive / source["name"], **options)
                         jobs.extend(collection.jobs)
                         failures.extend(collection.failures)
             elif args.command == "import-tracker":
@@ -162,11 +177,19 @@ def main(argv: list[str] | None = None) -> int:
             row["status_history"] = [dict(v) for v in store.db.execute("SELECT * FROM status_history WHERE job_id=? ORDER BY changed", (args.id,))]
             print(json.dumps(row, indent=2, ensure_ascii=False))
         return 0
+    except (ScanCancelled, KeyboardInterrupt):
+        if store:
+            store.db.rollback()
+        print("Search cancelled; committed data and cached details retained.", file=sys.stderr)
+        return 130
     except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as error:
         if store:
             store.db.rollback()
         print(f"Error: {error}", file=sys.stderr)
         return 1
     finally:
-        if store:
-            store.close()
+        try:
+            resources.close()
+        finally:
+            if store:
+                store.close()

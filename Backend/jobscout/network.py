@@ -29,7 +29,7 @@ class Fetcher:
             time.sleep(max(0, delay - (time.monotonic() - self.last_request.get(host, 0))))
             self.last_request[host] = time.monotonic()
             try:
-                request = Request(url, headers={"User-Agent": self.config["user_agent"], "Accept": "application/rss+xml, application/xml, text/plain"})
+                request = Request(url, headers={"User-Agent": self.config["user_agent"], "Accept": "text/html, application/rss+xml, application/xml, text/plain"})
                 with self.opener.open(request, timeout=self.config["timeout_seconds"]) as response:
                     data = response.read(self.config["max_bytes"] + 1)
                     if len(data) > self.config["max_bytes"]:

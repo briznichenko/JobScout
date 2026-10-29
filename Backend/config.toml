@@ -91,7 +91,7 @@ pattern = '\b(primary|main|predominant)\w* (?:responsibility|duty|work|communica
 reason = "Explicit predominantly phone-based work"
 
 [network]
-user_agent = "PersonalJobScout/0.1 (personal RSS reader)"
+user_agent = "PersonalJobScout/0.1 (personal vacancy collector)"
 delay_seconds = 2
 timeout_seconds = 20
 retries = 2
@@ -121,7 +121,10 @@ enabled = true
 urls = ["https://www.work.ua/jobs-ios/", "https://www.work.ua/jobs-macos/", "https://www.work.ua/jobs-technical+support/"]
 search_url = "https://www.work.ua/jobs-ios/"
 directory = "imports/workua"
-detail_limit = 10
+transport = "browser"
+page_limit = 2
+detail_limit = 20
+refresh_hours = 24
 
 [[sources]]
 name = "robota"
@@ -130,7 +133,10 @@ enabled = true
 urls = ["https://robota.ua/zapros/ios/ukraine", "https://robota.ua/zapros/technical-support/ukraine"]
 search_url = "https://robota.ua/zapros/ios/ukraine"
 directory = "imports/robota"
-detail_limit = 10
+transport = "browser"
+page_limit = 2
+detail_limit = 20
+refresh_hours = 24
 
 [[sources]]
 name = "linkedin"

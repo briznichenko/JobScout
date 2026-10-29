@@ -63,9 +63,9 @@ def read_source_file(path: Path, source: str) -> list[Vacancy]:
             raise ValueError("LinkedIn accepts saved email alerts or normalized JSON, not scraped HTML")
         jobs = parse_job_page(raw, source, "")
         if not jobs:
-            raise ValueError("Saved page has no structured JobPosting with an original URL")
+            raise ValueError("Saved page has no complete vacancy with an original URL; save the rendered detail page, not the search page")
         return jobs
-    raise ValueError("Supported source imports: JSON, EML, and structured HTML")
+    raise ValueError("Supported source imports: JSON, EML, and rendered vacancy HTML")
 
 
 def collect_local(source: dict, workspace: Path) -> tuple[Collection, list]:

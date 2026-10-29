@@ -11,6 +11,8 @@ from pathlib import Path
 from .cli import main as cli_main
 from .config import load_config, migrate_sources
 from .storage import Store
+from .browser import browser_status
+from .lifecycle import ScanCancelled, cancellation_scope
 
 
 def snapshot(workspace: Path) -> dict:
@@ -35,17 +37,27 @@ def snapshot(workspace: Path) -> dict:
             name = source["name"]
             failures = [f for f in (last_run or {}).get("failures", []) if f.startswith(name + " ")]
             count = sum(any(link["source"] == name for link in row["listings"]) or any(entry.get("platform") == name for entry in row["tracker_entries"]) for row in jobs)
-            mode = "Tracker export" if source["adapter"] == "tracker" else "Saved alerts" if source["adapter"] == "linkedin" else "Public pages + imports" if source["adapter"] in {"workua", "robota"} else "RSS feed"
+            mode = "Tracker export" if source["adapter"] == "tracker" else "Saved alerts" if source["adapter"] == "linkedin" else f"Public pages ({source['transport']}) + imports" if source["adapter"] in {"workua", "robota"} else "RSS feed"
             sources.append({"id": name, "mode": mode, "enabled": source["enabled"], "count": count, "failures": failures,
                             "search_url": source.get("search_url", "https://jobs.dou.ua/vacancies/" if name == "dou" else "https://djinni.co/jobs/"),
                             "directory": str(workspace / source.get("directory", f"imports/{name}"))})
         return {"jobs": jobs, "sources": sources, "last_run": last_run, "workspace": str(workspace), "report_path": str(workspace / "reports/latest.md"),
-                "minimum_score": config["report"]["minimum_score"], "strong_threshold": config["scoring"]["strong_threshold"]}
+                "minimum_score": config["report"]["minimum_score"], "strong_threshold": config["scoring"]["strong_threshold"],
+                "browser": browser_status()}
     finally:
         store.close()
 
 
 def main(argv=None) -> int:
+    try:
+        with cancellation_scope():
+            return run(argv)
+    except (ScanCancelled, KeyboardInterrupt):
+        print("Search cancelled.", file=sys.stderr)
+        return 130
+
+
+def run(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--workspace", required=True, type=Path)
     sub = parser.add_subparsers(dest="command", required=True)

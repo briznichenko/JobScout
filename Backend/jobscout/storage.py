@@ -59,10 +59,28 @@ class Store:
                 payload TEXT NOT NULL, mapped_status TEXT, imported TEXT NOT NULL,
                 local_history_count INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS crawl_cache (
+                source TEXT NOT NULL, identity TEXT NOT NULL,
+                attempted TEXT NOT NULL, fetched TEXT, payload TEXT,
+                PRIMARY KEY(source, identity)
+            );
         """)
 
     def close(self):
         self.db.close()
+
+    def crawl_entry(self, source, identity):
+        return self.db.execute("SELECT * FROM crawl_cache WHERE source=? AND identity=?", (source, identity)).fetchone()
+
+    def crawl_attempt(self, source, identity):
+        with self.db:
+            self.db.execute("INSERT INTO crawl_cache(source,identity,attempted) VALUES (?,?,?) ON CONFLICT(source,identity) DO UPDATE SET attempted=excluded.attempted",
+                            (source, identity, now()))
+
+    def crawl_save(self, source, identity, job):
+        with self.db:
+            self.db.execute("UPDATE crawl_cache SET fetched=?,payload=? WHERE source=? AND identity=?",
+                            (now(), json.dumps(job.payload(), ensure_ascii=False), source, identity))
 
     def begin(self, config: dict) -> int:
         self.db.execute("BEGIN IMMEDIATE")

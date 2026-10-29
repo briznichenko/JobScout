@@ -150,6 +150,7 @@ class ExpansionTests(unittest.TestCase):
                 raise HTTPError(url, 403, "Forbidden", {}, None)
         fetcher = DeniedFetcher()
         source = next(s for s in self.config["sources"] if s["name"] == "workua")
+        source["transport"] = "http"
         result = WorkUAAdapter().collect(source, fetcher, self.root / "archive")
         self.assertEqual(len(result.failures), 1)
         self.assertEqual(fetcher.calls, 1)

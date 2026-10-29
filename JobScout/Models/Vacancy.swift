@@ -151,14 +151,20 @@ struct JobSnapshot: Decodable, Sendable {
     let minimumScore: Int
     let strongThreshold: Int
     let sources: [SourceInfo]?
+    var browser: BrowserReadiness? = nil
 
     enum CodingKeys: String, CodingKey {
-        case jobs, workspace, message, sources
+        case jobs, workspace, message, sources, browser
         case lastRun = "last_run"
         case reportPath = "report_path"
         case minimumScore = "minimum_score"
         case strongThreshold = "strong_threshold"
     }
+}
+
+struct BrowserReadiness: Decodable, Sendable {
+    let ready: Bool
+    let message: String
 }
 
 enum Mailbox: String, CaseIterable, Identifiable, Sendable {
