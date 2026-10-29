@@ -8,7 +8,7 @@ struct JobScoutApp: App {
     var body: some Scene {
         Window("JobScout", id: "main") {
             ContentView(store: store)
-                .tint(.teal)
+                .tint(.primary)
                 .frame(minWidth: 1080, minHeight: 680)
                 .onAppear { delegate.store = store }
         }
@@ -34,7 +34,7 @@ struct JobScoutApp: App {
         }
         Settings {
             SettingsView(store: store)
-                .tint(.teal)
+                .tint(.primary)
         }
         MenuBarExtra("JobScout", systemImage: "briefcase.fill") {
             JobScoutMenu(store: store)

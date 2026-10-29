@@ -1,62 +1,27 @@
-import AppKit
 import SwiftUI
 
 struct VacancyListView: View {
     @Bindable var store: JobStore
 
+    private var hasFilters: Bool {
+        !store.search.isEmpty || store.role != .all || store.source != "All sources"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 13) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text((store.mailbox ?? .inbox).rawValue).font(.title2.bold())
-                    Spacer()
-                    Text(store.visibleJobs.count, format: .number)
-                        .font(.title3.monospacedDigit()).foregroundStyle(.secondary)
-                }
-                Picker("Role", selection: $store.role) {
-                    ForEach(RoleFilter.allCases) { role in Text(role.rawValue).tag(role) }
-                }
-                .pickerStyle(.segmented)
-                HStack {
-                    Menu {
-                        Picker("Source", selection: $store.source) {
-                            Text("All sources").tag("All sources")
-                            ForEach(store.sources, id: \.self) { Text(sourceName($0)).tag($0) }
-                        }
-                    } label: {
-                        Label(store.source == "All sources" ? "All sources" : sourceName(store.source), systemImage: "line.3.horizontal.decrease")
-                    }
-                    .menuStyle(.borderlessButton)
-                    .fixedSize()
-                    Spacer()
-                    Picker("Sort", selection: $store.sort) {
-                        ForEach(VacancySort.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .fixedSize()
-                }
-                .font(.caption)
-            }
-            .padding(16)
+            filters
             if let failures = store.snapshot?.lastRun?.failures, !failures.isEmpty {
-                Label("\(failures.count) feed request(s) failed. Successful results are saved.", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.orange.opacity(0.08))
-                    .help(failures.joined(separator: "\n"))
+                sourceNotice(failures)
             }
             Divider()
             List(selection: $store.selection) {
                 ForEach(store.visibleJobs) { job in
-                    VacancyRow(job: job, minimumScore: store.minimumScore, strongThreshold: store.strongThreshold)
+                    VacancyRow(job: job)
                         .tag(job.id)
                         .contextMenu {
                             ForEach(ApplicationStatus.allCases) { status in
                                 Button("Mark \(status.rawValue)") { store.updateStatus(status, for: job.id) }
-                                    .disabled(store.isBusy)
+                                    .disabled(store.isBusy || job.status == status)
                             }
                         }
                 }
@@ -64,68 +29,179 @@ struct VacancyListView: View {
             .listStyle(.inset)
             .overlay {
                 if store.visibleJobs.isEmpty {
-                    ContentUnavailableView {
-                        Label(store.isBusy ? "Loading…" : "No vacancies here", systemImage: "tray")
-                    } description: {
-                        Text(store.jobs.isEmpty ? "Scan the job feeds or import alerts." : "Try another view or clear your filters.")
-                    } actions: {
-                        if store.jobs.isEmpty {
-                            Button("Scan job feeds") { store.scan() }.disabled(store.isBusy)
-                        } else {
-                            Button("Show all vacancies") {
-                                store.mailbox = .all
-                                store.search = ""
-                                store.role = .all
-                                store.source = "All sources"
-                            }
-                        }
-                    }
+                    emptyState
                 }
             }
-            Divider()
-            HStack {
-                Text(store.mailbox == .audit ? "Automatic decisions · application status is separate" : "Ranked by your profile · review unknown requirements")
-                    .font(.caption2).foregroundStyle(.secondary)
-                Spacer(minLength: 0)
+            if store.mailbox == .audit {
+                Divider()
+                Text("Automatic filtering is separate from application status.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
             }
-            .padding(12)
         }
-        .searchable(text: $store.search, prompt: "Title, company, or skill")
+    }
+
+    private var filters: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text((store.mailbox ?? .inbox).rawValue)
+                    .font(.title2.weight(.semibold))
+                Spacer()
+                Text(store.visibleJobs.count, format: .number)
+                    .font(.body.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("\(store.visibleJobs.count) vacancies")
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search vacancies", text: $store.search)
+                    .textFieldStyle(.plain)
+                    .accessibilityLabel("Search title, company, location, or skill")
+                if !store.search.isEmpty {
+                    Button {
+                        store.search = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Clear search")
+                    .accessibilityLabel("Clear search")
+                }
+            }
+            .padding(9)
+            .background(.background, in: RoundedRectangle(cornerRadius: 7))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(.separator, lineWidth: 0.5)
+            }
+            Picker("Role", selection: $store.role) {
+                ForEach(RoleFilter.allCases) { role in Text(role.rawValue).tag(role) }
+            }
+            .pickerStyle(.segmented)
+            HStack(spacing: 8) {
+                Picker("Source", selection: $store.source) {
+                    Text("All sources").tag("All sources")
+                    ForEach(store.sources, id: \.self) { Text(sourceName($0)).tag($0) }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .help("Filter by source")
+                Picker("Sort", selection: $store.sort) {
+                    ForEach(VacancySort.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .help("Sort vacancies")
+            }
+            .controlSize(.regular)
+            if hasFilters {
+                HStack {
+                    Text("Filters active")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Clear filters", action: clearFilters)
+                        .buttonStyle(.link)
+                }
+                .font(.callout)
+            }
+        }
+        .padding(16)
+    }
+
+    private func sourceNotice(_ failures: [String]) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Some sources need attention")
+                    .font(.callout.weight(.medium))
+                Text("Available results are saved.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("Review sources") { store.showsSettings = true }
+                    .buttonStyle(.link)
+                    .font(.callout)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.35))
+        .help(failures.joined(separator: "\n"))
+    }
+
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label(store.isBusy ? "Loading vacancies…" : "No vacancies here", systemImage: "tray")
+        } description: {
+            Text(store.jobs.isEmpty ? "Search your sources or import saved alerts to get started." : "Change the view or clear your filters to see more vacancies.")
+        } actions: {
+            if store.jobs.isEmpty {
+                Button("Search now") { store.scan() }
+                    .disabled(store.isBusy)
+            } else if hasFilters {
+                Button("Clear filters", action: clearFilters)
+            } else {
+                Button("Show all vacancies") { store.mailbox = .all }
+            }
+        }
+    }
+
+    private func clearFilters() {
+        store.search = ""
+        store.role = .all
+        store.source = "All sources"
     }
 }
 
 private struct VacancyRow: View {
     let job: Vacancy
-    let minimumScore: Int
-    let strongThreshold: Int
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            ScoreBadge(score: job.assessment.score, minimumScore: minimumScore, strongThreshold: strongThreshold)
-                .padding(.top, 3)
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(job.payload.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(job.payload.company.isEmpty ? "Company not provided" : job.payload.company)
-                    .font(.caption)
+                    .font(.body)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                HStack(spacing: 5) {
+                if !job.payload.salary.isEmpty {
+                    Text(job.payload.salary)
+                        .font(.callout.weight(.medium))
+                        .lineLimit(1)
+                }
+                if !job.payload.location.isEmpty {
+                    Text(job.payload.location)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                HStack(spacing: 6) {
                     Text(job.listings.map { sourceName($0.source) }.uniqued().joined(separator: " · "))
-                        .font(.caption2).foregroundStyle(.secondary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                     Spacer(minLength: 0)
                     if job.assessment.decision == "rejected" {
-                        Tag(text: "Filtered", color: .orange)
+                        Tag(text: "Filtered")
                     } else if job.status != .new {
-                        Tag(text: job.status.rawValue, color: .teal)
+                        Tag(text: job.status.rawValue)
                     } else if job.kind == "new" || job.kind == "updated" {
-                        Tag(text: job.kind.capitalized, color: .teal)
+                        Tag(text: job.kind.capitalized)
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            ScoreBadge(score: job.assessment.score)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .accessibilityElement(children: .combine)
     }
 }

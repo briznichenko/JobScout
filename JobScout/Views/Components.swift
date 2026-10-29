@@ -3,27 +3,18 @@ import SwiftUI
 struct ScoreBadge: View {
     let score: Int
     var size: CGFloat = 44
-    var minimumScore: Int = 45
-    var strongThreshold: Int = 70
-
-    private var color: Color { score >= strongThreshold ? .teal : score >= minimumScore ? .orange : .secondary }
 
     var body: some View {
-        ZStack {
-            Circle().stroke(color.opacity(0.14), lineWidth: size > 50 ? 6 : 3)
-            Circle()
-                .trim(from: 0, to: CGFloat(score) / 100)
-                .stroke(color, style: StrokeStyle(lineWidth: size > 50 ? 6 : 3, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            VStack(spacing: 0) {
-                Text(score, format: .number)
-                    .font(.system(size: size * 0.34, weight: .semibold, design: .rounded))
-                if size > 50 {
-                    Text("/ 100").font(.caption2).foregroundStyle(.secondary)
-                }
+        VStack(spacing: 2) {
+            Text(score, format: .number)
+                .font(.system(size: size * 0.34, weight: .semibold))
+                .monospacedDigit()
+            if size > 50 {
+                Text("/ 100").font(.caption2).foregroundStyle(.secondary)
             }
         }
         .frame(width: size, height: size)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Fit score \(score) out of 100")
     }
@@ -31,15 +22,14 @@ struct ScoreBadge: View {
 
 struct Tag: View {
     let text: String
-    var color: Color = .secondary
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10, weight: .medium))
+            .font(.system(size: 12, weight: .medium))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .foregroundStyle(color)
-            .background(color.opacity(0.10), in: Capsule())
+            .foregroundStyle(.primary)
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 4))
     }
 }
 
@@ -57,7 +47,6 @@ struct Panel<Content: View>: View {
 struct FactorSection: View {
     let title: String
     let symbol: String
-    let color: Color
     let factors: [String]
 
     var body: some View {
@@ -65,7 +54,7 @@ struct FactorSection: View {
             Panel {
                 Label(title, systemImage: symbol)
                     .font(.headline)
-                    .foregroundStyle(color)
+                    .foregroundStyle(.primary)
                 ForEach(Array(factors.enumerated()), id: \.offset) { _, factor in
                     Text(factor)
                         .font(.callout)
