@@ -9,3 +9,7 @@ __pycache__/
 Backend/data/
 Backend/reports/
 .venv/
+
+server-token
+server.lock
+server.log
