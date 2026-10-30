@@ -50,10 +50,13 @@ struct SettingsView: View {
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
+                .controlSize(.large)
+                .fixedSize()
             }
             .font(.callout)
             .foregroundStyle(.secondary)
-            .padding(16)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
         }
         .frame(width: 720, height: 700)
         .sheet(isPresented: $store.showsRulesEditor) {
@@ -110,7 +113,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(24)
         }
     }
 

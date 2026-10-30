@@ -20,7 +20,7 @@ struct JobScoutApp: App {
                 .onAppear { delegate.store = store }
         }
         .defaultSize(width: 1380, height: 880)
-        .windowToolbarStyle(.expanded)
+        .windowToolbarStyle(.unifiedCompact)
         .commands {
             CommandMenu("Search") {
                 Button("Search Now") { store.scan() }

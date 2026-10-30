@@ -16,7 +16,7 @@ struct VacancyDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 24) {
                 header
                 metadata
                 assessment
@@ -24,16 +24,17 @@ struct VacancyDetailView: View {
                 description
                 supportingDetails
             }
-            .padding(28)
+            .padding(24)
             .frame(maxWidth: 800, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .background(.background)
         .safeAreaInset(edge: .top, spacing: 0) {
             actions
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: 800, alignment: .leading)
+                .frame(maxWidth: .infinity)
                 .background(.bar)
                 .overlay(alignment: .bottom) { Divider() }
         }
@@ -64,8 +65,10 @@ struct VacancyDetailView: View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 10) {
                 listingLink
+                    .fixedSize()
                 Spacer(minLength: 12)
                 statusActions
+                    .fixedSize()
             }
             VStack(alignment: .leading, spacing: 10) {
                 listingLink
@@ -79,6 +82,7 @@ struct VacancyDetailView: View {
         if let url = webURL(job.payload.url) {
             Link(destination: url) {
                 Label(job.payload.source == "google_sheets" && url.host == "docs.google.com" ? "Open tracker" : "Open listing", systemImage: "arrow.up.right")
+                    .frame(minHeight: 20)
             }
             .buttonStyle(.borderedProminent)
             .help("Open the original listing in your browser")
@@ -91,6 +95,7 @@ struct VacancyDetailView: View {
                 store.updateStatus(.interested, for: job.id)
             } label: {
                 Label("Interested", systemImage: job.status == .interested ? "star.fill" : "star")
+                    .frame(minHeight: 20)
             }
             .help(job.status == .interested ? "Already marked interested" : "Save this vacancy as interested")
             .disabled(store.isBusy || job.status == .interested)
@@ -98,6 +103,7 @@ struct VacancyDetailView: View {
                 store.updateStatus(.applied, for: job.id)
             } label: {
                 Label("Applied", systemImage: job.status == .applied ? "checkmark.circle.fill" : "paperplane")
+                    .frame(minHeight: 20)
             }
             .help(job.status == .applied ? "Already marked applied" : "Mark that you have applied")
             .disabled(store.isBusy || job.status == .applied)
@@ -118,6 +124,7 @@ struct VacancyDetailView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
+                    .frame(minWidth: 20, minHeight: 20)
             }
             .menuIndicator(.hidden)
             .fixedSize()

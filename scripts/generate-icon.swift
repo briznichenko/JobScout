@@ -19,7 +19,7 @@ for size in [16, 32, 128, 256, 512] {
         image.lockFocus()
         NSGraphicsContext.current?.imageInterpolation = .high
         let tile = NSBezierPath(roundedRect: NSRect(x: side * 0.07, y: side * 0.07, width: side * 0.86, height: side * 0.86), xRadius: side * 0.20, yRadius: side * 0.20)
-        NSGradient(starting: NSColor(calibratedRed: 0.10, green: 0.73, blue: 0.68, alpha: 1), ending: NSColor(calibratedRed: 0.03, green: 0.35, blue: 0.42, alpha: 1))!.draw(in: tile, angle: -60)
+        NSGradient(starting: NSColor(calibratedWhite: 0.30, alpha: 1), ending: NSColor(calibratedWhite: 0.10, alpha: 1))!.draw(in: tile, angle: -60)
         NSColor.white.withAlphaComponent(0.95).setStroke()
         let handle = NSBezierPath(roundedRect: NSRect(x: side * 0.36, y: side * 0.59, width: side * 0.28, height: side * 0.15), xRadius: side * 0.04, yRadius: side * 0.04)
         handle.lineWidth = side * 0.045

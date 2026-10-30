@@ -59,7 +59,7 @@ struct VacancyListView: View {
     }
 
     private var filters: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text((store.mailbox ?? .inbox).rawValue)
                     .font(.title2.weight(.semibold))
@@ -88,17 +88,20 @@ struct VacancyListView: View {
                     .accessibilityLabel("Clear search")
                 }
             }
-            .padding(9)
+            .padding(.horizontal, 10)
+            .frame(height: 32)
             .background(.background, in: RoundedRectangle(cornerRadius: 7))
             .overlay {
                 RoundedRectangle(cornerRadius: 7)
                     .strokeBorder(.separator, lineWidth: 0.5)
             }
-            Picker("Role", selection: $store.role) {
+            Picker("", selection: $store.role) {
                 ForEach(RoleFilter.allCases) { role in Text(role.rawValue).tag(role) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .accessibilityLabel("Role")
+            .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 8) {
                 Picker("Source", selection: $store.source) {
                     Text("All sources").tag("All sources")
@@ -126,7 +129,9 @@ struct VacancyListView: View {
                 .font(.callout)
             }
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
     }
 
     private func sourceNotice(_ failures: [String]) -> some View {
@@ -145,7 +150,8 @@ struct VacancyListView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.35))
         .help(failures.joined(separator: "\n"))
@@ -218,7 +224,7 @@ private struct VacancyRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
     }
 }
