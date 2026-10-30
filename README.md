@@ -11,14 +11,14 @@ The app includes an independent copy of the crawler under `Backend/`; it does no
 - The **briefcase icon in the macOS menu bar** stays available when the window is closed. Its menu offers Search Now, Open JobScout, counts, cancellation during a search, and Quit.
 - **Search → Search Now** / ⇧⌘R runs all enabled sources, updates history, and generates reports. The toolbar provides the same action. You can cancel a running search.
 - **Inbox** shows active opportunities above your configured report threshold. **Strong matches** uses your configured strong-score threshold.
-- Search title, company, description, location, or salary. Filter by role/source and sort by fit or discovery time.
+- Search title, company, description, location, or salary in the vacancy list; ⌘F focuses search. Filter by role/source, sort by fit or discovery time, and use **Clear filters** to reset the current view.
 - Select a vacancy to read its description, score breakdown, missing requirements, uncertainties, and rejection evidence.
 - The persistent detail action bar offers **Open listing**, **Interested**, and **Applied** directly. Its more-actions menu includes every application status. Status persists in SQLite and survives scans. Filter rejection is separate from application rejection.
 - **Filter audit** exposes automatic rejections; **All vacancies** retains low scores and dismissed jobs.
 - **Import** accepts Google Sheets tracker exports, normalized JSON alerts, DOU/Djinni RSS, Work.ua/Robota.ua rendered vacancy HTML, and saved EML job alerts. LinkedIn imports accept EML/JSON only.
 - **Application tracker** shows imported application records. The detail view retains original status text, dates, notes, preparation gaps, retrospectives, and strikethrough flags. Exact vacancy URLs join existing listings without replacing their full descriptions. New live data can enrich a tracker-only entry.
 - **Report** generates and opens the current Markdown summary. ⌘R reloads stored data without crawling.
-- **Settings** configures your Python executable and opens the scoring rules or data folder. Edit the rules in your preferred text editor, save, then choose **Recalculate scores**.
+- **Settings** groups source actions, matching rules, and runtime/data into separate tabs. Source notices open the Sources tab directly. Edit the rules in your preferred text editor, save, then choose **Recalculate scores** under Matching.
 
 ## Added sources and tracker refresh
 

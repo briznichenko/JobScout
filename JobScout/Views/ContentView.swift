@@ -18,10 +18,10 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             SidebarView(store: store)
-                .navigationSplitViewColumnWidth(min: 195, ideal: 215, max: 250)
+                .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
         } content: {
             VacancyListView(store: store)
-                .navigationSplitViewColumnWidth(min: 325, ideal: 390, max: 480)
+                .navigationSplitViewColumnWidth(min: 345, ideal: 400, max: 500)
         } detail: {
             if let vacancy = store.selectedJob {
                 VacancyDetailView(job: vacancy, store: store)
@@ -66,9 +66,12 @@ struct ContentView: View {
                 Button("Report", systemImage: "doc.richtext") { store.openReport() }
                     .disabled(store.isBusy || store.snapshot?.lastRun == nil)
                     .help("Generate and open the Markdown report")
-                SettingsLink { Label("Settings", systemImage: "gearshape") }
-                    .help("Python and scoring settings")
+                Button("Settings", systemImage: "gearshape") { store.showsSettings = true }
+                    .help("Sources, matching rules, and runtime settings")
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Button("Search Now", systemImage: "arrow.clockwise") { store.scan() }
+                    .labelStyle(.titleAndIcon)
                     .disabled(store.isBusy)
                     .help("Search configured sources (⇧⌘R)")
             }

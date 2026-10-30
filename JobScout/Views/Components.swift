@@ -11,17 +11,27 @@ struct ScoreBadge: View {
     let score: Int
     var size: CGFloat = 44
 
+    private var color: Color {
+        switch score {
+        case 75...: .green
+        case 60..<75: .blue
+        case 45..<60: .yellow
+        default: .red
+        }
+    }
+
     var body: some View {
         VStack(spacing: 2) {
             Text(score, format: .number)
                 .font(.system(size: size * 0.34, weight: .semibold))
                 .monospacedDigit()
             if size > 50 {
-                Text("/ 100").font(.caption2).foregroundStyle(.secondary)
+                Text("/ 100").font(.caption2)
             }
         }
         .frame(width: size, height: size)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+        .foregroundStyle(color)
+        .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Fit score \(score) out of 100")
     }
@@ -32,7 +42,7 @@ struct Tag: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 12, weight: .medium))
+            .font(.caption.weight(.medium))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .foregroundStyle(.primary)
