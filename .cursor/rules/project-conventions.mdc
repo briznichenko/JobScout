@@ -1,0 +1,6 @@
+---
+description: Required commit message format and standard Xcode headers for Swift files
+alwaysApply: true
+---
+
+Follow the commit message and Swift file header conventions in the repository root `AGENTS.md`. They apply to every commit and every authored `**/*.swift` file in this project.
