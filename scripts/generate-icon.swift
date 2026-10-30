@@ -15,8 +15,9 @@ for size in [16, 32, 128, 256, 512] {
     for scale in [1, 2] {
         let pixels = size * scale
         let side = CGFloat(pixels)
-        let image = NSImage(size: NSSize(width: side, height: side))
-        image.lockFocus()
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
         NSGraphicsContext.current?.imageInterpolation = .high
         let tile = NSBezierPath(roundedRect: NSRect(x: side * 0.07, y: side * 0.07, width: side * 0.86, height: side * 0.86), xRadius: side * 0.20, yRadius: side * 0.20)
         NSGradient(starting: NSColor(calibratedWhite: 0.30, alpha: 1), ending: NSColor(calibratedWhite: 0.10, alpha: 1))!.draw(in: tile, angle: -60)
@@ -34,8 +35,7 @@ for size in [16, 32, 128, 256, 512] {
         divider.stroke()
         NSColor.white.setFill()
         NSBezierPath(roundedRect: NSRect(x: side * 0.46, y: side * 0.43, width: side * 0.08, height: side * 0.12), xRadius: side * 0.015, yRadius: side * 0.015).fill()
-        image.unlockFocus()
-        let bitmap = NSBitmapImageRep(data: image.tiffRepresentation!)!
+        NSGraphicsContext.restoreGraphicsState()
         let filename = "icon_\(size)x\(size)@\(scale)x.png"
         try bitmap.representation(using: .png, properties: [:])!.write(to: root.appending(path: filename))
         entries.append(["idiom": "mac", "size": "\(size)x\(size)", "scale": "\(scale)x", "filename": filename])
