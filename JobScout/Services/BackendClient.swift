@@ -1,3 +1,10 @@
+//
+//  BackendClient.swift
+//  JobScout
+//
+//  Created by Andrii Bryzhnychenko on 10/29/26.
+//
+
 import Foundation
 
 struct AppRuntime: Sendable {
