@@ -32,6 +32,15 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .safeAreaInset(edge: .bottom) {
+            if store.isOffline {
+                Label("Showing saved vacancies. Connect to the server to refresh or save changes.", systemImage: "wifi.slash")
+                    .font(.callout)
+                    .frame(maxWidth: .infinity)
+                    .padding(8)
+                    .background(.bar)
+            }
+        }
         .toolbar {
             ToolbarItemGroup {
                 if store.isBusy {
@@ -83,7 +92,7 @@ struct ContentView: View {
             SettingsView(store: store)
         }
         .task {
-            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil, store.snapshot == nil {
+            if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
                 store.refresh()
             }
         }

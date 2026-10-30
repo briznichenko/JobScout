@@ -1,8 +1,8 @@
-# JobScout for macOS
+# JobScout for macOS and iOS
 
-A native SwiftUI GUI for the local Python job crawler. Open `JobScout.xcodeproj`, select the **JobScout** scheme and **My Mac**, then run. Requires macOS 15+ and a local Python 3.12+ installation. No Swift package dependencies or runtime AI calls.
+Native SwiftUI clients for a Python vacancy service. Open `JobScout.xcodeproj`, select **JobScout / My Mac** or **JobScoutIOS / an iOS simulator or device**. The Mac requires macOS 15+ and Python 3.12+; iOS requires iOS 18+. Both use the local `Packages/JobScoutKit` package. No runtime AI calls or third-party Python service dependencies.
 
-The delivered project is at `~/Documents/xcodeprojects/JobScout`. A locally built app is included at `Build/JobScout.app`; open it directly if you do not need Xcode. It uses the same Application Support data as subsequent Xcode builds.
+The delivered project is at `~/Documents/xcodeprojects/JobScout`. The current Debug build is at `Build/API/Build/Products/Debug/JobScout.app`; older copies under `Build/` may predate the API migration. It uses the same Application Support data as subsequent Xcode builds.
 
 The app includes an independent copy of the crawler under `Backend/`; it does not depend on the original chat folder. The initial database is a SQLite backup of the vacancies collected on 2026-10-26, not demo jobs. The original CLI project and database remain available separately.
 
@@ -13,7 +13,7 @@ The app includes an independent copy of the crawler under `Backend/`; it does no
 - **Inbox** shows active opportunities above your configured report threshold. **Strong matches** uses your configured strong-score threshold.
 - Search title, company, description, location, or salary. Filter by role/source and sort by fit or discovery time.
 - Select a vacancy to read its description, score breakdown, missing requirements, uncertainties, and rejection evidence.
-- Change the application status to Interested, Applied, Rejected, or Ignored. This persists in SQLite and survives scans. Filter rejection is separate from application rejection.
+- The persistent detail action bar offers **Open listing**, **Interested**, and **Applied** directly. Its more-actions menu includes every application status. Status persists in SQLite and survives scans. Filter rejection is separate from application rejection.
 - **Filter audit** exposes automatic rejections; **All vacancies** retains low scores and dismissed jobs.
 - **Import** accepts Google Sheets tracker exports, normalized JSON alerts, DOU/Djinni RSS, Work.ua/Robota.ua rendered vacancy HTML, and saved EML job alerts. LinkedIn imports accept EML/JSON only.
 - **Application tracker** shows imported application records. The detail view retains original status text, dates, notes, preparation gaps, retrospectives, and strikethrough flags. Exact vacancy URLs join existing listings without replacing their full descriptions. New live data can enrich a tracker-only entry.
@@ -66,7 +66,7 @@ Live data is stored in `~/Library/Application Support/JobScout/`:
 
 The app copies the bundled config and seed database only when the respective destination files do not exist. Rebuilds do not reset your data. Back up this directory to preserve your search history. `Seed/jobs.sqlite` is the one-time starting snapshot, not a live database; application statuses never write into the project or app bundle.
 
-Python is discovered from common installation paths. This Mac has Python at `/Library/Frameworks/Python.framework/Versions/3.12/bin/python3`. If your installation differs, set its absolute executable path in Settings. Python is intentionally not bundled, so distributing this personal app to another Mac requires installing Python there. The GUI communicates with it through a small versioned-by-source JSON interface (`Backend/jobscout/gui.py`). It executes arguments directly using Foundation `Process`, without a shell.
+Python is discovered from common installation paths. This Mac has Python at `/Library/Frameworks/Python.framework/Versions/3.12/bin/python3`. If your installation differs, set its absolute executable path in Settings. Python is intentionally not bundled, so distributing this personal app to another Mac requires installing Python there. The GUI talks to the authenticated HTTP API described in [Backend/API.md](Backend/API.md). It starts a loopback service once when needed, then uses URLSession for vacancies, statuses, file uploads, scans, scoring, settings, and reports. The service reuses the crawler, scoring, and SQLite code. A running service retains its Python interpreter until restarted; saving a different interpreter path affects the next service launch.
 
 This is a local development app with App Sandbox disabled because it invokes an external Python installation and supports importing files. It is not configured for Mac App Store distribution. Normal local Xcode builds can use ad hoc signing; no Apple developer account is needed for the documented command below.
 
@@ -79,30 +79,51 @@ cd Backend
 python3 -m jobscout --config "$HOME/Library/Application Support/JobScout/config.toml" scan
 ```
 
-The app must have launched once to initialize that config. Use the browser-enabled interpreter above for live page collection, and the same `--config` argument for CLI status, report, and launchd commands. The GUI does not install a background schedule. A per-database file lock rejects overlapping CLI/GUI scans. See `Backend/README.md` for all crawler commands and its limitations.
+The app must have launched once to initialize that config. Use the browser-enabled interpreter above for live page collection, and the same `--config` argument for CLI status, report, and launchd commands. The GUI does not install a scan schedule. A separate login service can be configured using `jobscout.service_login`; see [API startup instructions](Backend/API.md#startup-at-login). A per-database file lock rejects overlapping scans. Avoid external CLI write commands while the service is handling mutations. See `Backend/README.md` for all crawler commands and its limitations.
 
 ## Swift decisions to study
 
 `JobStore` is the single `@MainActor @Observable` owner of UI state. The app keeps it in `@State`; views use `@Bindable` to edit filters and selection. Observation replaces the `ObservableObject` / `@Published` pattern here: there is no event-processing pipeline that would justify adding Combine. Unlike `DispatchQueue.main.async`, `@MainActor` makes UI isolation part of the type system.
 
-The process boundary returns immutable `Decodable & Sendable` values. Neither SQLite connections nor Foundation `Process` objects cross into UI code. `BackendClient` owns processes in an actor. Its termination handler resumes a checked continuation; process-launch failure and termination both remove the pending entry before resuming, guarding against double resume. Quitting waits for cancellation so the crawler is not left running in the background.
+`JobScoutKit` owns public `Codable & Sendable` models, mailbox rules, the `JobScoutAPI` actor, typed connection/authentication/conflict errors, and per-server snapshot caching. The package has no SwiftUI/AppKit dependency. UI state and platform-specific file opening remain in the clients; neither SQLite connections nor Python processes cross the HTTP boundary.
 
-Awaiting a process makes the actor reentrant. The UI's busy gate remains set across that suspension, preventing a second operation from racing a scan or status update. Cancellation forwards to the actor, sends termination to Python, and waits for process exit before releasing that gate. Cancellation can happen after SQLite committed, so the app offers refresh instead of claiming a rollback. This is an interview-worthy distinction: task cancellation is a cooperative signal, not a guarantee that side effects were undone.
+Actor reentrancy still matters across URLSession suspension: the iOS store captures a connection revision and ignores results from a previous server after settings change. macOS serializes UI actions through its busy gate and prevents connection saves during a request. Network task cancellation stops waiting; it cannot undo a server mutation that already committed.
 
-Python handles termination by unwinding its resource scopes: pages, Chromium and the Playwright driver close before the scan lock is released. Successful detail-cache writes survive interruption and can be ingested by a later scan. Application statuses and completed scan data remain in SQLite; a cancelled uncommitted run is rolled back.
+Scans are service-owned operations with stable IDs, coarse progress states, explicit cancellation, and reconnect through `/v1/scans/current`. The service serializes mutations and rejects a second scan. Closing a window, suspending iOS, or quitting macOS leaves the server scan running. Explicit Cancel asks the service to signal the crawler. Committed records and cached details survive cancellation; interrupted database work rolls back.
 
-Output goes to temporary files instead of pipes. That avoids deadlock when one output pipe fills while code drains the other. The actor cleans the temporary files on completion; neither `waitUntilExit()` nor pipe reads block the main actor.
+Both clients load a per-server cached snapshot for offline reading. Tokens live in Keychain for manually configured connections; the managed local service uses its mode-0600 token file. A cached snapshot contains private vacancy/tracker information, so it is stored in the app's private data/cache area with restricted file permissions. A failed write is never queued for silent replay.
 
-The Swift Testing suite injects a `JobBackend` fake to test state transitions without a crawler. A separate integration test starts a real Python process, cancels it, and verifies the next request succeeds. These cover behavior that can break across actor suspensions rather than snapshotting view layout.
+The Swift Testing suites cover filtering, status identity, UI serialization, wire routes/authentication, cache isolation, and real HTTP workflows. The ownership test cancels Mac polling, verifies the scan still runs, and then explicitly cancels it through the API.
+
+## iOS and LAN setup
+
+1. Start a service from a stable Backend path with `python3 -B -m jobscout.service --workspace "$HOME/Library/Application Support/JobScout" --host 0.0.0.0`. Stop an existing loopback service first; only one process can own the workspace. The Mac app can also connect to a service started at login.
+2. Run the **JobScoutIOS** scheme. Simulator builds work without signing; a physical iPhone needs your development signing team in Xcode.
+3. In iOS **Settings**, enter `http://YOUR-MAC-LAN-IP:8765` and copy the contents of `server-token` from the Mac workspace. Allow local-network access when iOS requests it. Use the same private network and keep the Mac awake.
+4. Read/filter/search vacancies, open details, update status, pull to refresh, or start/cancel a server scan. The client recovers the current operation on reconnect and polls while foregrounded. It shows a saved snapshot when the service is unavailable.
+
+HTTP sends the bearer token and vacancy data without encryption. For an encrypted connection, start with `--cert` and `--key` and use HTTPS with a certificate trusted by both devices; no trust bypass is provided. The iOS ATS exception permits manually entered HTTP LAN IP addresses. Do not expose this personal service to the internet. Manual server addresses work independently of discovery. To discover the Mac on iOS, start the LAN service with `--bonjour`, then choose **Connection → Find servers on this network**. Verify a discovered address before entering its token; discovery is unauthenticated and publishes no credentials.
+
+Login startup is supplied as a LaunchAgent generator and installation instructions in [Backend/API.md](Backend/API.md#startup-at-login). It is not installed automatically by building/running the clients. Actual device LAN permissions, firewall prompts, multicast discovery, trusted TLS configuration, and login-agent activation must be verified on the intended devices.
 
 ## Build and verify
 
-The generated Xcode project is checked in. XcodeGen is only necessary after changing `project.yml` or the source-file inventory.
+The generated Xcode project is checked in. XcodeGen 2.44+ is only necessary after changing `project.yml` or the source-file inventory; the older XcodeGen 1.x executable cannot generate local Swift package dependencies. Run `xcodegen generate` with a current version.
 
 ```sh
 xcodebuild -project JobScout.xcodeproj -scheme JobScout \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath .build test CODE_SIGNING_ALLOWED=NO
+
+xcodebuild -project JobScout.xcodeproj -scheme JobScoutIOS \
+  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath Build/IOSAPI build CODE_SIGNING_ALLOWED=NO
+
+xcodebuild -project JobScout.xcodeproj -scheme JobScoutIOS \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' \
+  -derivedDataPath Build/IOSAPI test CODE_SIGNING_ALLOWED=NO
+
+swift test --package-path Packages/JobScoutKit
 
 cd Backend
 python3 -B -m unittest discover -v
