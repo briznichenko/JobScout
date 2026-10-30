@@ -12,6 +12,7 @@ struct VacancyDetailView: View {
     @Bindable var store: JobStore
     @State private var showsBreakdown = false
     @State private var showsSources = false
+    @State private var showsFitReasons = false
 
     var body: some View {
         ScrollView {
@@ -153,7 +154,12 @@ struct VacancyDetailView: View {
             if job.assessment.decision == "rejected" {
                 factors("Why it was filtered", symbol: "line.3.horizontal.decrease.circle", values: job.assessment.rejected)
             }
-            factors("Why it fits", symbol: "checkmark.circle", values: job.assessment.positive)
+            if !job.assessment.positive.isEmpty {
+                DisclosureGroup("Why it fits (\(job.assessment.positive.count))", isExpanded: $showsFitReasons) {
+                    factors("Matching factors", symbol: "checkmark.circle", values: job.assessment.positive)
+                        .padding(.top, 10)
+                }
+            }
             factors("Concerns", symbol: "exclamationmark.circle", values: job.assessment.negative)
             factors("Requirements to verify", symbol: "questionmark.circle", values: job.assessment.missing)
             factors("Check before applying", symbol: "checklist", values: job.assessment.uncertainty)

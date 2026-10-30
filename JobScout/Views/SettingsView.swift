@@ -15,18 +15,27 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TabView(selection: $selectedTab) {
-                sourcesTab
-                    .tabItem { Label("Sources", systemImage: "tray.2") }
-                    .tag(SettingsTab.sources)
-                matchingTab
-                    .tabItem { Label("Matching", systemImage: "slider.horizontal.3") }
-                    .tag(SettingsTab.matching)
-                runtimeTab
-                    .tabItem { Label("Runtime & Data", systemImage: "gearshape") }
-                    .tag(SettingsTab.runtime)
+            Picker("Settings section", selection: $selectedTab) {
+                Text("Sources").tag(SettingsTab.sources)
+                Text("Matching").tag(SettingsTab.matching)
+                Text("Runtime & Data").tag(SettingsTab.runtime)
             }
-            .padding(20)
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .font(.body)
+            .controlSize(.large)
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
+            Divider()
+            Group {
+                switch selectedTab {
+                case .sources: sourcesTab
+                case .matching: matchingTab
+                case .runtime: runtimeTab
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             Divider()
             HStack(spacing: 12) {
                 if store.isBusy {

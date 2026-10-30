@@ -9,6 +9,7 @@ import SwiftUI
 
 struct VacancyListView: View {
     @Bindable var store: JobStore
+    @FocusState private var searchIsFocused: Bool
 
     private var hasFilters: Bool {
         !store.search.isEmpty || store.role != .all || store.source != "All sources"
@@ -48,6 +49,12 @@ struct VacancyListView: View {
                     .padding(14)
             }
         }
+        .background {
+            Button("Find vacancies") { searchIsFocused = true }
+                .keyboardShortcut("f", modifiers: .command)
+                .hidden()
+                .accessibilityHidden(true)
+        }
     }
 
     private var filters: some View {
@@ -66,6 +73,7 @@ struct VacancyListView: View {
                     .foregroundStyle(.secondary)
                 TextField("Search vacancies", text: $store.search)
                     .textFieldStyle(.plain)
+                    .focused($searchIsFocused)
                     .accessibilityLabel("Search title, company, location, or skill")
                 if !store.search.isEmpty {
                     Button {
@@ -170,6 +178,7 @@ private struct VacancyRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
+            ScoreBadge(score: job.assessment.score)
             VStack(alignment: .leading, spacing: 6) {
                 Text(job.payload.title)
                     .font(.system(size: 14, weight: .semibold))
@@ -206,7 +215,6 @@ private struct VacancyRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            ScoreBadge(score: job.assessment.score)
         }
         .padding(.vertical, 10)
         .accessibilityElement(children: .combine)
