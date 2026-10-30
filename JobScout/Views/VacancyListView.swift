@@ -18,6 +18,7 @@ struct VacancyListView: View {
     var body: some View {
         VStack(spacing: 0) {
             filters
+                .fixedSize(horizontal: false, vertical: true)
             if let failures = store.snapshot?.lastRun?.failures, !failures.isEmpty {
                 sourceNotice(failures)
             }
@@ -97,6 +98,7 @@ struct VacancyListView: View {
                 ForEach(RoleFilter.allCases) { role in Text(role.rawValue).tag(role) }
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
             HStack(spacing: 8) {
                 Picker("Source", selection: $store.source) {
                     Text("All sources").tag("All sources")

@@ -16,10 +16,11 @@ struct JobScoutApp: App {
         Window("JobScout", id: "main") {
             ContentView(store: store)
                 .tint(.primary)
-                .frame(minWidth: 1080, minHeight: 680)
+                .frame(minWidth: 1080, minHeight: 680, alignment: .top)
                 .onAppear { delegate.store = store }
         }
         .defaultSize(width: 1380, height: 880)
+        .windowToolbarStyle(.expanded)
         .commands {
             CommandMenu("Search") {
                 Button("Search Now") { store.scan() }
