@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import JobScoutKit
 
 struct AppRuntime: Sendable {
     let backend: URL
@@ -15,7 +16,7 @@ struct AppRuntime: Sendable {
     static func live(bundle: Bundle = .main) throws -> AppRuntime {
         guard let resources = bundle.resourceURL else { throw BackendError.resourcesMissing }
         let backend = resources.appending(path: "Backend", directoryHint: .isDirectory)
-        guard FileManager.default.fileExists(atPath: backend.appending(path: "jobscout/gui.py").path) else {
+        guard FileManager.default.fileExists(atPath: backend.appending(path: "jobscout/service.py").path) else {
             throw BackendError.resourcesMissing
         }
         let arguments = ProcessInfo.processInfo.arguments
@@ -68,108 +69,170 @@ enum BackendError: LocalizedError, Sendable {
 
 protocol JobBackend: Sendable {
     func execute(_ command: [String], python: String) async throws -> JobSnapshot
+    func cancelScan() async throws
+    func scanInProgress() async throws -> Bool
+}
+
+extension JobBackend {
+    func cancelScan() async throws {}
+    func scanInProgress() async throws -> Bool { false }
 }
 
 actor BackendClient: JobBackend {
-    private struct Running {
-        let process: Process
-        let directory: URL
-        let continuation: CheckedContinuation<Data, any Error>
-        var cancelled = false
+    private let runtime: AppRuntime
+    private var service: Process?
+    private var serverURL: URL
+    private var cancellationRequested = false
+    private var activeScanCommand = false
+    private var suppliedToken: String
+
+    init(runtime: AppRuntime, serverURL: URL = URL(string: "http://127.0.0.1:8765")!, token: String = "") {
+        self.runtime = runtime
+        self.serverURL = serverURL
+        suppliedToken = token
     }
 
-    private let runtime: AppRuntime
-    private var running: [UUID: Running] = [:]
+    func configure(serverURL: URL, token: String) {
+        self.serverURL = serverURL
+        suppliedToken = token
+    }
 
-    init(runtime: AppRuntime) {
-        self.runtime = runtime
+    private func client(python: String) async throws -> JobScoutAPI {
+        let url = serverURL
+        let local = ["127.0.0.1", "localhost", "::1"].contains(url.host ?? "") && url.port == 8765
+        if local && suppliedToken.isEmpty {
+            try runtime.prepare()
+            let tokenURL = runtime.workspace.appending(path: "server-token")
+            if let token = try? String(contentsOf: tokenURL, encoding: .utf8) {
+                let existing = JobScoutAPI(baseURL: url, token: token.trimmingCharacters(in: .whitespacesAndNewlines))
+                do {
+                    _ = try await existing.snapshot()
+                    return existing
+                } catch APIError.unauthorized {
+                    throw APIError.unauthorized
+                } catch {}
+            }
+            if service?.isRunning != true {
+                guard FileManager.default.isExecutableFile(atPath: python) else { throw BackendError.invalidPython }
+                let process = Process()
+                process.executableURL = URL(filePath: python)
+                process.arguments = ["-B", "-m", "jobscout.service", "--workspace", runtime.workspace.path]
+                process.currentDirectoryURL = runtime.backend
+                process.standardInput = FileHandle.nullDevice
+                let logURL = runtime.workspace.appending(path: "server.log")
+                if !FileManager.default.fileExists(atPath: logURL.path) {
+                    FileManager.default.createFile(atPath: logURL.path, contents: nil)
+                }
+                let log = try FileHandle(forWritingTo: logURL)
+                try log.seekToEnd()
+                process.standardOutput = log
+                process.standardError = log
+                defer { try? log.close() }
+                try process.run()
+                service = process
+            }
+            for _ in 0..<50 {
+                try Task.checkCancellation()
+                if let token = try? String(contentsOf: tokenURL, encoding: .utf8) {
+                    let api = JobScoutAPI(baseURL: url, token: token.trimmingCharacters(in: .whitespacesAndNewlines))
+                    if (try? await api.snapshot()) != nil { return api }
+                }
+                if service?.isRunning == false { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            throw BackendError.failed("The local service could not start. Check Python and server.log in your data folder.")
+        }
+        return JobScoutAPI(baseURL: url, token: suppliedToken)
+    }
+
+    func settings(python: String) async throws -> ServerSettings {
+        try await client(python: python).settings()
+    }
+
+    func saveSettings(_ config: String, python: String) async throws {
+        _ = try await client(python: python).saveSettings(config: config)
     }
 
     func execute(_ command: [String], python: String) async throws -> JobSnapshot {
-        try Task.checkCancellation()
-        guard FileManager.default.isExecutableFile(atPath: python) else { throw BackendError.invalidPython }
-        try runtime.prepare()
-        let result = try await run(executable: python, arguments: ["-B", "-m", "jobscout.gui", "--workspace", runtime.workspace.path] + command)
-        try Task.checkCancellation()
-        do {
-            return try JSONDecoder().decode(JobSnapshot.self, from: result)
-        } catch {
-            throw BackendError.unreadableResponse(error.localizedDescription)
+        let scanning = ["scan", "resume-scan"].contains(command.first ?? "")
+        if scanning { activeScanCommand = true }
+        defer {
+            if scanning {
+                activeScanCommand = false
+                cancellationRequested = false
+            }
         }
-    }
-
-    private func run(executable: String, arguments: [String]) async throws -> Data {
-        let id = UUID()
-        return try await withTaskCancellationHandler {
+        let api = try await client(python: python)
+        switch command.first {
+        case "snapshot":
+            return try await api.snapshot()
+        case "resume-scan":
+            if let current = try await api.currentScan(), current.isRunning {
+                if cancellationRequested { _ = try await api.cancelScan(id: current.id) }
+                try await wait(current, api: api)
+            }
+            return try await api.snapshot()
+        case "scan":
             try Task.checkCancellation()
-            return try await withCheckedThrowingContinuation { continuation in
-                let directory = FileManager.default.temporaryDirectory.appending(path: "jobscout-\(id.uuidString)")
-                do {
-                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-                    let output = directory.appending(path: "stdout")
-                    let errors = directory.appending(path: "stderr")
-                    FileManager.default.createFile(atPath: output.path, contents: nil)
-                    FileManager.default.createFile(atPath: errors.path, contents: nil)
-                    let stdout = try FileHandle(forWritingTo: output)
-                    let stderr = try FileHandle(forWritingTo: errors)
-                    defer {
-                        try? stdout.close()
-                        try? stderr.close()
-                    }
-                    let process = Process()
-                    process.executableURL = URL(filePath: executable)
-                    process.arguments = arguments
-                    process.currentDirectoryURL = runtime.backend
-                    process.standardInput = FileHandle.nullDevice
-                    process.standardOutput = stdout
-                    process.standardError = stderr
-                    var environment = ProcessInfo.processInfo.environment
-                    environment["PYTHONDONTWRITEBYTECODE"] = "1"
-                    environment["PYTHONIOENCODING"] = "utf-8"
-                    process.environment = environment
-                    process.terminationHandler = { [weak self] process in
-                        let exitCode = process.terminationStatus
-                        Task { await self?.finished(id: id, exitCode: exitCode) }
-                    }
-                    running[id] = Running(process: process, directory: directory, continuation: continuation)
-                    try process.run()
-                } catch {
-                    running.removeValue(forKey: id)
-                    try? FileManager.default.removeItem(at: directory)
-                    continuation.resume(throwing: error)
-                }
-            }
-        } onCancel: {
-            Task { await self.cancel(id: id) }
-        }
-    }
-
-    private func cancel(id: UUID) {
-        guard var operation = running[id] else { return }
-        operation.cancelled = true
-        running[id] = operation
-        if operation.process.isRunning { operation.process.terminate() }
-    }
-
-    private func finished(id: UUID, exitCode: Int32) {
-        guard let operation = running.removeValue(forKey: id) else { return }
-        defer { try? FileManager.default.removeItem(at: operation.directory) }
-        if operation.cancelled {
-            operation.continuation.resume(throwing: CancellationError())
-            return
-        }
-        do {
-            if exitCode == 0 {
-                let data = try Data(contentsOf: operation.directory.appending(path: "stdout"))
-                operation.continuation.resume(returning: data)
+            if cancellationRequested { throw CancellationError() }
+            let operation: ScanOperation
+            if let current = try await api.currentScan(), current.isRunning {
+                operation = current
             } else {
-                let data = try Data(contentsOf: operation.directory.appending(path: "stderr"))
-                let details = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-                let message = details.isEmpty ? "The crawler stopped with exit code \(exitCode)." : details
-                operation.continuation.resume(throwing: BackendError.failed(message))
+                operation = try await api.startScan()
             }
-        } catch {
-            operation.continuation.resume(throwing: error)
+            if cancellationRequested { _ = try await api.cancelScan(id: operation.id) }
+            try await wait(operation, api: api)
+            return try await api.snapshot()
+        case "status":
+            guard command.count == 3, let id = Int(command[1]), let status = ApplicationStatus(rawValue: command[2]) else {
+                throw BackendError.failed("Invalid status update.")
+            }
+            return try await api.updateStatus(status, for: id)
+        case "import", "import-tracker", "import-source":
+            guard command.count >= 2 else { throw BackendError.failed("Choose a file to import.") }
+            let url = URL(filePath: command[1])
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            let data = try Data(contentsOf: url)
+            let adapter = command.firstIndex(of: "--adapter").flatMap { command.indices.contains($0 + 1) ? command[$0 + 1] : nil }
+            let source = command.firstIndex(of: "--source").flatMap { command.indices.contains($0 + 1) ? command[$0 + 1] : nil }
+            return try await api.importFile(data: data, filename: url.lastPathComponent,
+                kind: command[0] == "import-tracker" ? "tracker" : command[0] == "import-source" ? "source" : "vacancies", adapter: adapter, source: source)
+        case "rescore": return try await api.rescore()
+        case "report": return try await api.report()
+        default: throw BackendError.failed("Unsupported service command.")
+        }
+    }
+
+    private func wait(_ operation: ScanOperation, api: JobScoutAPI) async throws {
+        var current = operation
+        while current.isRunning {
+            try await Task.sleep(for: .milliseconds(500))
+            current = try await api.scan(id: current.id)
+        }
+        if current.state == "cancelled" { throw CancellationError() }
+        if current.state == "failed" { throw BackendError.failed(current.message ?? "Search failed.") }
+    }
+
+    func scanInProgress() async throws -> Bool {
+        let token = suppliedToken.isEmpty
+            ? (try String(contentsOf: runtime.workspace.appending(path: "server-token"), encoding: .utf8)).trimmingCharacters(in: .whitespacesAndNewlines)
+            : suppliedToken
+        return try await JobScoutAPI(baseURL: serverURL, token: token).currentScan()?.isRunning ?? false
+    }
+
+    func cancelScan() async throws {
+        cancellationRequested = true
+        defer { if !activeScanCommand { cancellationRequested = false } }
+        let token: String
+        if suppliedToken.isEmpty {
+            guard let saved = try? String(contentsOf: runtime.workspace.appending(path: "server-token"), encoding: .utf8) else { return }
+            token = saved.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else { token = suppliedToken }
+        let api = JobScoutAPI(baseURL: serverURL, token: token)
+        if let current = try await api.currentScan(), current.isRunning {
+            _ = try await api.cancelScan(id: current.id)
         }
     }
 }

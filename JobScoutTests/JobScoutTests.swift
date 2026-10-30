@@ -69,12 +69,16 @@ struct VacancyTests {
 actor RecordingBackend: JobBackend {
     private(set) var calls: [[String]] = []
     var jobs: [Vacancy]
+    private var cancelRequested = false
+
+    func cancelScan() { cancelRequested = true }
 
     init(jobs: [Vacancy]) { self.jobs = jobs }
 
     func execute(_ command: [String], python: String) async throws -> JobSnapshot {
         calls.append(command)
         try await Task.sleep(for: .milliseconds(20))
+        if cancelRequested { throw CancellationError() }
         if command.first == "status", let id = Int(command[1]), let index = jobs.firstIndex(where: { $0.id == id }), let status = ApplicationStatus(rawValue: command[2]) {
             jobs[index].status = status
         }
@@ -92,7 +96,7 @@ struct JobStoreTests {
         throw BackendError.failed("Operation did not finish")
     }
 
-    @Test func overlappingOperationsDoNotStartDuplicateProcesses() async throws {
+    @Test func overlappingRequestsAreSerialized() async throws {
         let backend = RecordingBackend(jobs: [try Fixtures.job()])
         let store = JobStore(backend: backend)
         store.refresh()
@@ -147,38 +151,125 @@ struct JobStoreTests {
     }
 }
 
-@Suite("Process cancellation")
-struct BackendProcessTests {
-    @Test func cancellationTerminatesPythonAndNextCommandWorks() async throws {
-        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let module = root.appending(path: "backend/jobscout")
-        try FileManager.default.createDirectory(at: module, withIntermediateDirectories: true)
-        try Data().write(to: module.appending(path: "__init__.py"))
-        try Data().write(to: root.appending(path: "backend/config.toml"))
-        let marker = root.appending(path: "started")
-        let script = """
-        import sys,time,pathlib
-        if sys.argv[-1] == 'scan':
-            pathlib.Path(\(String(reflecting: marker.path))).write_text('started')
-            time.sleep(60)
-        print(\(String(reflecting: Fixtures.emptyJSON)))
-        """
-        try script.write(to: module.appending(path: "gui.py"), atomically: true, encoding: .utf8)
-        let client = BackendClient(runtime: AppRuntime(backend: root.appending(path: "backend"), seed: nil, workspace: root.appending(path: "workspace")))
+@Suite("HTTP workflow")
+struct BackendHTTPTests {
+    @Test func importingAndStatusUseTheServiceDatabase() async throws {
+        let harness = try await ServiceHarness.start()
+        defer { harness.stop() }
+        let client = harness.client
+        let initial = try await client.execute(["snapshot"], python: AppRuntime.defaultPython)
+        #expect(initial.jobs.isEmpty)
+        let imported = try await client.execute(["import", harness.backend.appending(path: "examples/alerts.json").path], python: AppRuntime.defaultPython)
+        #expect(imported.jobs.count == 3)
+        let changed = try await client.execute(["status", "1", "Applied"], python: AppRuntime.defaultPython)
+        #expect(changed.jobs.first { $0.id == 1 }?.status == .applied)
+        let report = try await client.execute(["report"], python: AppRuntime.defaultPython)
+        #expect(FileManager.default.fileExists(atPath: report.reportPath))
+    }
+
+    @Test func cancellingClientPollingLeavesScanRunningUntilExplicitCancel() async throws {
+        let harness = try await ServiceHarness.start()
+        defer { harness.stop() }
+        let client = harness.client
         let task = Task { try await client.execute(["scan"], python: AppRuntime.defaultPython) }
-        for _ in 0..<300 {
-            if FileManager.default.fileExists(atPath: marker.path) { break }
-            try await Task.sleep(for: .milliseconds(10))
+        for _ in 0..<100 {
+            if (try? await client.scanInProgress()) == true { break }
+            try await Task.sleep(for: .milliseconds(20))
         }
+        #expect(try await client.scanInProgress())
         task.cancel()
         do {
             _ = try await task.value
-            Issue.record("Cancelled process returned success")
-        } catch is CancellationError {
+            Issue.record("Cancelled polling returned success")
+        } catch is CancellationError {}
+        #expect(try await client.scanInProgress())
+        try await client.cancelScan()
+        for _ in 0..<100 {
+            if (try? await client.scanInProgress()) == false { break }
+            try await Task.sleep(for: .milliseconds(20))
         }
-        #expect(FileManager.default.fileExists(atPath: marker.path))
+        #expect(try await !client.scanInProgress())
         let snapshot = try await client.execute(["snapshot"], python: AppRuntime.defaultPython)
         #expect(snapshot.jobs.isEmpty)
+        let next = Task { try await client.execute(["scan"], python: AppRuntime.defaultPython) }
+        for _ in 0..<100 {
+            if (try? await client.scanInProgress()) == true { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(try await client.scanInProgress())
+        try await client.cancelScan()
+        do {
+            _ = try await next.value
+            Issue.record("Explicitly cancelled scan returned success")
+        } catch is CancellationError {}
+        #expect(try await !client.scanInProgress())
+    }
+}
+
+private struct ServiceHarness {
+    let process: Process
+    let root: URL
+    let backend: URL
+    let client: BackendClient
+
+    static func start() async throws -> ServiceHarness {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let backend = try AppRuntime.live().backend
+        let portFile = root.appending(path: "port")
+        let workspace = root.appending(path: "workspace")
+        let token = String(repeating: "test-token", count: 4)
+        let script = root.appending(path: "service.py")
+        let source = """
+        import pathlib,signal,sys,threading
+        from jobscout.service import Service,HTTPServer
+        service=Service(pathlib.Path(\(String(reflecting: workspace.path))),token=\(String(reflecting: token)))
+        original=service.command
+        def command(arguments):
+            if arguments == ['scan']:
+                return [sys.executable,'-c','import time;time.sleep(60)']
+            return original(arguments)
+        service.command=command
+        server=HTTPServer(('127.0.0.1',0),service)
+        pathlib.Path(\(String(reflecting: portFile.path))).write_text(str(server.server_port))
+        def stop(*args):
+            if service.current and service.busy():
+                service.cancel(service.current)
+            threading.Thread(target=server.shutdown).start()
+        signal.signal(signal.SIGTERM,stop)
+        server.serve_forever()
+        server.server_close()
+        """
+        try source.write(to: script, atomically: true, encoding: .utf8)
+        let process = Process()
+        process.executableURL = URL(filePath: AppRuntime.defaultPython)
+        process.arguments = ["-B", script.path]
+        process.currentDirectoryURL = backend
+        var environment = ProcessInfo.processInfo.environment
+        environment["PYTHONPATH"] = backend.path
+        process.environment = environment
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.standardError
+        try process.run()
+        do {
+            for _ in 0..<200 {
+                if let port = try? String(contentsOf: portFile, encoding: .utf8), let number = Int(port) {
+                    let client = BackendClient(runtime: AppRuntime(backend: backend, seed: nil, workspace: workspace), serverURL: URL(string: "http://127.0.0.1:\(number)")!, token: token)
+                    return ServiceHarness(process: process, root: root, backend: backend, client: client)
+                }
+                guard process.isRunning else { throw BackendError.failed("Test HTTP service exited") }
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            throw BackendError.failed("Test HTTP service did not start")
+        } catch {
+            if process.isRunning { process.terminate(); process.waitUntilExit() }
+            try? FileManager.default.removeItem(at: root)
+            throw error
+        }
+    }
+
+    func stop() {
+        if process.isRunning { process.terminate(); process.waitUntilExit() }
+        try? FileManager.default.removeItem(at: root)
     }
 }

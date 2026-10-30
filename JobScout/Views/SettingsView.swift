@@ -47,6 +47,24 @@ struct SettingsView: View {
             .padding(16)
         }
         .frame(width: 720, height: 700)
+        .sheet(isPresented: $store.showsRulesEditor) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Server matching rules").font(.title2.bold())
+                TextEditor(text: $store.rulesText)
+                    .font(.system(.body, design: .monospaced))
+                    .disabled(store.isBusy)
+                if let error = store.errorMessage {
+                    Text(error).foregroundStyle(.red).font(.callout)
+                }
+                HStack {
+                    Button("Close") { store.showsRulesEditor = false }.disabled(store.isBusy)
+                    Spacer()
+                    Button("Save rules") { store.saveServerRules() }.disabled(store.isBusy)
+                }
+            }
+            .padding(20)
+            .frame(width: 680, height: 560)
+        }
     }
 
     private var sourcesTab: some View {
@@ -61,7 +79,7 @@ struct SettingsView: View {
                         }
                     }
                 } else {
-                    ContentUnavailableView("Sources aren’t loaded", systemImage: "tray.2", description: Text("Check the Python runtime, then reload your saved data."))
+                    ContentUnavailableView("Sources aren’t loaded", systemImage: "tray.2", description: Text("Check the server connection, then reload your saved data."))
                     Button("Reload sources") { store.refresh() }
                         .disabled(store.isBusy)
                 }
@@ -69,8 +87,8 @@ struct SettingsView: View {
                     Text("Enable or disable sources in your rules file.")
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Open rules…", action: openRules)
-                        .disabled(store.workspace == nil)
+                    Button(store.isLocalServer ? "Open rules…" : "Edit server rules…", action: openRules)
+                        .disabled(store.isBusy)
                 }
                 .font(.callout)
                 if let failures = store.snapshot?.lastRun?.failures, !failures.isEmpty {
@@ -94,10 +112,10 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Label("1. Edit and save your rules", systemImage: "doc.text")
                         .font(.headline)
-                    Text("The rules open in your default text editor.")
+                    Text("Local rules open in your text editor. For a remote connection, edit the server’s rules here.")
                         .foregroundStyle(.secondary)
-                    Button("Open rules…", action: openRules)
-                        .disabled(store.workspace == nil)
+                    Button(store.isLocalServer ? "Open rules…" : "Edit server rules…", action: openRules)
+                        .disabled(store.isBusy)
                 }
                 Divider()
                 VStack(alignment: .leading, spacing: 12) {
@@ -118,13 +136,22 @@ struct SettingsView: View {
     private var runtimeTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                heading("Runtime & data", detail: "JobScout runs locally using Python 3.12 or newer.")
+                heading("Runtime & data", detail: "JobScout connects to a Python service on this Mac or your local network.")
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Python executable").font(.headline)
+                    Text("Server connection").font(.headline)
+                    TextField("http://127.0.0.1:8765", text: $store.serverAddress)
+                        .textFieldStyle(.roundedBorder)
+                    SecureField("Server token (blank for managed local service)", text: $store.serverToken)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Use HTTPS for an encrypted LAN connection. HTTP sends your token and vacancy data in plaintext; use it only on a trusted private network.")
+                        .font(.callout).foregroundStyle(.secondary)
+                    Text("Local Python executable").font(.headline)
                     TextField("Path to Python", text: $store.pythonPath)
                         .font(.system(.body, design: .monospaced))
                         .textFieldStyle(.roundedBorder)
                         .accessibilityLabel("Python executable path")
+                    Text("Python is used when starting the local service. A running service keeps its interpreter until you restart it.")
+                        .font(.callout).foregroundStyle(.secondary)
                     Button("Save & reload") { store.saveSettings() }
                         .disabled(store.isBusy)
                     if let browser = store.snapshot?.browser {
@@ -152,7 +179,7 @@ struct SettingsView: View {
                         Button("Show data folder in Finder") { NSWorkspace.shared.open(workspace) }
                     }
                 }
-                Text("Background scheduling is configured with the CLI launchd command.")
+                Text("For service startup at login, use the backend service_login command described in Backend/API.md. Closing JobScout leaves server scans running.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -192,6 +219,7 @@ struct SettingsView: View {
                 }
                 Spacer(minLength: 0)
                 Button("Inbox folder", systemImage: "folder") { openInbox(source) }
+                    .disabled(!store.isLocalServer)
             }
             .controlSize(.regular)
             if !source.failures.isEmpty {
@@ -220,6 +248,8 @@ struct SettingsView: View {
     private func openRules() {
         if let url = store.workspace?.appending(path: "config.toml") {
             NSWorkspace.shared.open(url)
+        } else {
+            store.loadServerRules()
         }
     }
 
