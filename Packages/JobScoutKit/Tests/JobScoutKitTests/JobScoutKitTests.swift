@@ -109,6 +109,37 @@ struct JobScoutKitTests {
         #expect(object["potentially_removed"] as? Int == 0)
     }
 
+    @Test func snapshotQueriesRespectThresholdsAndTrackerSources() {
+        let job = Vacancy(
+            id: 2, status: .new, created: "2026-10-29", updated: "2026-10-29", kind: "new",
+            payload: VacancyContent(
+                source: "dou", url: "https://example.com/2", title: "Swift engineer", description: "UIKit",
+                company: "Example", location: "Remote", salary: "", published: ""
+            ),
+            assessment: Assessment(
+                score: 80, decision: "review", role: "apple", positive: [], negative: [],
+                missing: [], uncertainty: [], rejected: [], components: [:]
+            ),
+            listings: [SourceListing(source: "dou", url: "https://example.com/2", lastSeen: "today", potentiallyRemoved: false)],
+            trackerEntries: [TrackerEntry(
+                key: "row", sheet: "iOS", row: 2, sheetURL: "https://example.com/tracker",
+                vacancyURL: "https://example.com/2", originalStatus: "Draft", dateSent: "", struckOut: false,
+                fields: ["notes": "Interview preparation"], platform: "linkedin"
+            )]
+        )
+        let snapshot = JobSnapshot(
+            jobs: [job], lastRun: nil, workspace: "/test", reportPath: "", message: nil,
+            minimumScore: 85, strongThreshold: 90,
+            sources: [SourceInfo(id: "linkedin", mode: "import", enabled: true, count: 0, failures: [], searchURL: "", directory: "")]
+        )
+        #expect(snapshot.count(in: .inbox) == 0)
+        #expect(snapshot.count(in: .strong) == 0)
+        #expect(snapshot.count(in: .tracker) == 1)
+        #expect(snapshot.sourceIDs == ["dou", "linkedin"])
+        #expect(snapshot.vacancies(in: .all, role: .apple, source: "linkedin", search: "preparation", sort: .fit).map(\.id) == [2])
+        #expect(snapshot.vacancies(in: .all, role: .support, source: "All sources", search: "", sort: .fit).isEmpty)
+    }
+
     @Test func malformedAddressFailsBeforeNetworkAccess() async throws {
         let client = JobScoutAPI(baseURL: URL(string: "file:///tmp/server")!, token: "token")
         do {

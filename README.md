@@ -6,6 +6,8 @@ The delivered project is at `~/Documents/xcodeprojects/JobScout`. The current De
 
 The app includes an independent copy of the crawler under `Backend/`; it does not depend on the original chat folder. The initial database is a SQLite backup of the vacancies collected on 2026-10-26, not demo jobs. The original CLI project and database remain available separately.
 
+The [architecture and code guide](Docs/Architecture.md) maps the layers, file locations, data flow, remaining design concerns, and Swift concepts.
+
 ## Everyday use
 
 - The **briefcase icon in the macOS menu bar** stays available when the window is closed. Its menu offers Search Now, Open JobScout, counts, cancellation during a search, and Quit.

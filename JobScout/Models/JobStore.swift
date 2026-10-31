@@ -71,10 +71,8 @@ final class JobStore {
     }
 
     var jobs: [Vacancy] { snapshot?.jobs ?? [] }
-    var minimumScore: Int { snapshot?.minimumScore ?? 45 }
-    var strongThreshold: Int { snapshot?.strongThreshold ?? 70 }
     var selectedJob: Vacancy? { jobs.first { $0.id == selection } }
-    var sources: [String] { Set(jobs.flatMap { $0.listings.map(\.source) } + (snapshot?.sources ?? []).map(\.id)).sorted() }
+    var sources: [String] { snapshot?.sourceIDs ?? [] }
     var workspace: URL? { isLocalServer ? runtime?.workspace : nil }
     var isLocalServer: Bool {
         guard let url = URL(string: serverAddress) else { return false }
@@ -82,55 +80,43 @@ final class JobStore {
     }
 
     var visibleJobs: [Vacancy] {
-        let selectedMailbox = mailbox ?? .inbox
-        return jobs.filter { job in
-            selectedMailbox.contains(job, minimumScore: minimumScore, strongThreshold: strongThreshold)
-                && (role == .all || job.assessment.role == role.rawValue.lowercased())
-                && (source == "All sources" || job.hasSource(source))
-                && (search.isEmpty || job.searchableText.localizedStandardContains(search))
-        }.sorted { left, right in
-            if sort == .recent, left.created != right.created { return left.created > right.created }
-            if left.assessment.score != right.assessment.score { return left.assessment.score > right.assessment.score }
-            return left.id < right.id
-        }
+        snapshot?.vacancies(in: mailbox ?? .inbox, role: role, source: source, search: search, sort: sort) ?? []
     }
 
     func count(_ mailbox: Mailbox) -> Int {
-        jobs.filter { mailbox.contains($0, minimumScore: minimumScore, strongThreshold: strongThreshold) }.count
+        snapshot?.count(in: mailbox) ?? 0
     }
 
     func refresh() {
-        perform(["snapshot"], activity: "Loading vacancies…")
+        perform(.snapshot, activity: "Loading vacancies…")
     }
 
     func scan() {
-        perform(["scan"], activity: "Searching configured sources…", completion: "Search complete")
+        perform(.scan, activity: "Searching configured sources…", completion: "Search complete")
     }
 
     func updateStatus(_ status: ApplicationStatus, for id: Int) {
-        perform(["status", String(id), status.rawValue], activity: "Saving status…", completion: "Status saved")
+        perform(.updateStatus(status, id: id), activity: "Saving status…", completion: "Status saved")
     }
 
     func importFile(_ url: URL, adapter: String?) {
-        var command = ["import", url.path]
-        if let adapter { command += ["--adapter", adapter] }
-        perform(command, activity: "Importing vacancies…", completion: "Import complete")
+        perform(.importFile(url, kind: .vacancies(adapter: adapter)), activity: "Importing vacancies…", completion: "Import complete")
     }
 
     func importTracker(_ url: URL) {
-        perform(["import-tracker", url.path], activity: "Importing application tracker…", completion: "Application tracker imported")
+        perform(.importFile(url, kind: .tracker), activity: "Importing application tracker…", completion: "Application tracker imported")
     }
 
     func importSource(_ url: URL, source: String) {
-        perform(["import-source", url.path, "--source", source], activity: "Importing \(sourceName(source))…", completion: "Source imported")
+        perform(.importFile(url, kind: .source(source)), activity: "Importing \(sourceName(source))…", completion: "Source imported")
     }
 
     func rescore() {
-        perform(["rescore"], activity: "Recalculating fit scores…", completion: "Fit scores updated")
+        perform(.rescore, activity: "Recalculating fit scores…", completion: "Fit scores updated")
     }
 
     func openReport() {
-        perform(["report"], activity: "Generating report…", openReport: true)
+        perform(.report, activity: "Generating report…", openReport: true)
     }
 
     func saveSettings() {
@@ -210,11 +196,11 @@ final class JobStore {
         await pending?.value
     }
 
-    private func perform(_ command: [String], activity: String, completion: String? = nil, openReport: Bool = false) {
+    private func perform(_ command: BackendCommand, activity: String, completion: String? = nil, openReport: Bool = false) {
         guard !isBusy, let backend else { return }
         isBusy = true
         wantsScanCancellation = false
-        isScanning = ["scan", "resume-scan"].contains(command.first ?? "")
+        isScanning = command.isScan
         self.activity = activity
         notice = nil
         let executable = pythonPath
@@ -227,7 +213,7 @@ final class JobStore {
                 isScanning = false
                 self.activity = ""
                 operation = nil
-                if resumeScan && !Task.isCancelled { perform(["resume-scan"], activity: "Search running on server…", completion: "Search complete") }
+                if resumeScan && !Task.isCancelled { perform(.resumeScan, activity: "Search running on server…", completion: "Search complete") }
             }
             do {
                 if let client = backend as? BackendClient, let url = URL(string: address) {
@@ -241,11 +227,11 @@ final class JobStore {
                 isOffline = false
                 try? cache?.save(result)
                 notice = completion
-                if ["scan", "resume-scan"].contains(command.first ?? ""), let failures = result.lastRun?.failures, !failures.isEmpty {
+                if command.isScan, let failures = result.lastRun?.failures, !failures.isEmpty {
                     notice = "Search finished with \(failures.count) source issue(s). Successful results are saved."
                 }
                 reconcileSelection()
-                if command.first == "snapshot" { resumeScan = (try? await backend.scanInProgress()) ?? false }
+                if command == .snapshot { resumeScan = (try? await backend.scanInProgress()) ?? false }
                 if openReport {
                     if isLocalServer { NSWorkspace.shared.open(URL(filePath: result.reportPath)) }
                     else { notice = "Report generated on the server at \(result.reportPath)." }

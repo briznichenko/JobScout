@@ -20,7 +20,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .config import load_config, migrate_sources
-from .gui import snapshot
+from .snapshot import snapshot
 
 
 class APIError(Exception):

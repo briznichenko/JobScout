@@ -9,46 +9,11 @@ import shutil
 from pathlib import Path
 
 from .cli import main as cli_main
-from .config import load_config, migrate_sources
-from .storage import Store
-from .browser import browser_status
+from .snapshot import snapshot
 from .lifecycle import ScanCancelled, cancellation_scope
 
 
-def snapshot(workspace: Path) -> dict:
-    migrate_sources(workspace / "config.toml")
-    config = load_config(workspace / "config.toml")
-    store = Store(workspace / "data/jobs.sqlite")
-    try:
-        try:
-            run = store.latest_run()
-        except ValueError:
-            run = None
-        jobs = store.rows(run["id"] if run else None)
-        for row in jobs:
-            row["payload"].pop("raw", None)
-        last_run = None
-        if run:
-            counts = dict(store.db.execute("SELECT kind,count(*) FROM events WHERE run_id=? GROUP BY kind", (run["id"],)).fetchall())
-            last_run = {"id": run["id"], "started": run["started"], "finished": run["finished"], "failures": json.loads(run["failures"]),
-                        "new_count": counts.get("new", 0), "updated_count": counts.get("updated", 0), "unchanged_count": counts.get("unchanged", 0)}
-        sources = []
-        for source in config["sources"]:
-            name = source["name"]
-            failures = [f for f in (last_run or {}).get("failures", []) if f.startswith(name + " ")]
-            count = sum(any(link["source"] == name for link in row["listings"]) or any(entry.get("platform") == name for entry in row["tracker_entries"]) for row in jobs)
-            mode = "Tracker export" if source["adapter"] == "tracker" else "Saved alerts" if source["adapter"] == "linkedin" else f"Public pages ({source['transport']}) + imports" if source["adapter"] in {"workua", "robota"} else "RSS feed"
-            sources.append({"id": name, "mode": mode, "enabled": source["enabled"], "count": count, "failures": failures,
-                            "search_url": source.get("search_url", "https://jobs.dou.ua/vacancies/" if name == "dou" else "https://djinni.co/jobs/"),
-                            "directory": str(workspace / source.get("directory", f"imports/{name}"))})
-        return {"jobs": jobs, "sources": sources, "last_run": last_run, "workspace": str(workspace), "report_path": str(workspace / "reports/latest.md"),
-                "minimum_score": config["report"]["minimum_score"], "strong_threshold": config["scoring"]["strong_threshold"],
-                "browser": browser_status()}
-    finally:
-        store.close()
-
-
-def main(argv=None) -> int:
+def main(argv: list[str] | None = None) -> int:
     try:
         with cancellation_scope():
             return run(argv)
@@ -57,7 +22,7 @@ def main(argv=None) -> int:
         return 130
 
 
-def run(argv=None) -> int:
+def run(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--workspace", required=True, type=Path)
     sub = parser.add_subparsers(dest="command", required=True)

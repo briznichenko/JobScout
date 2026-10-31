@@ -6,7 +6,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jobscout.gui import main, snapshot
+from jobscout.gui import main
+from jobscout.snapshot import snapshot
 from tests.test_scoring import ROOT
 
 

@@ -67,7 +67,7 @@ struct VacancyTests {
 }
 
 actor RecordingBackend: JobBackend {
-    private(set) var calls: [[String]] = []
+    private(set) var calls: [BackendCommand] = []
     var jobs: [Vacancy]
     private var cancelRequested = false
 
@@ -75,11 +75,11 @@ actor RecordingBackend: JobBackend {
 
     init(jobs: [Vacancy]) { self.jobs = jobs }
 
-    func execute(_ command: [String], python: String) async throws -> JobSnapshot {
+    func execute(_ command: BackendCommand, python: String) async throws -> JobSnapshot {
         calls.append(command)
         try await Task.sleep(for: .milliseconds(20))
         if cancelRequested { throw CancellationError() }
-        if command.first == "status", let id = Int(command[1]), let index = jobs.firstIndex(where: { $0.id == id }), let status = ApplicationStatus(rawValue: command[2]) {
+        if case .updateStatus(let status, let id) = command, let index = jobs.firstIndex(where: { $0.id == id }) {
             jobs[index].status = status
         }
         return Fixtures.snapshot(jobs: jobs)
@@ -157,13 +157,13 @@ struct BackendHTTPTests {
         let harness = try await ServiceHarness.start()
         defer { harness.stop() }
         let client = harness.client
-        let initial = try await client.execute(["snapshot"], python: AppRuntime.defaultPython)
+        let initial = try await client.execute(.snapshot, python: AppRuntime.defaultPython)
         #expect(initial.jobs.isEmpty)
-        let imported = try await client.execute(["import", harness.backend.appending(path: "examples/alerts.json").path], python: AppRuntime.defaultPython)
+        let imported = try await client.execute(.importFile(harness.backend.appending(path: "examples/alerts.json"), kind: .vacancies(adapter: nil)), python: AppRuntime.defaultPython)
         #expect(imported.jobs.count == 3)
-        let changed = try await client.execute(["status", "1", "Applied"], python: AppRuntime.defaultPython)
+        let changed = try await client.execute(.updateStatus(.applied, id: 1), python: AppRuntime.defaultPython)
         #expect(changed.jobs.first { $0.id == 1 }?.status == .applied)
-        let report = try await client.execute(["report"], python: AppRuntime.defaultPython)
+        let report = try await client.execute(.report, python: AppRuntime.defaultPython)
         #expect(FileManager.default.fileExists(atPath: report.reportPath))
     }
 
@@ -171,7 +171,7 @@ struct BackendHTTPTests {
         let harness = try await ServiceHarness.start()
         defer { harness.stop() }
         let client = harness.client
-        let task = Task { try await client.execute(["scan"], python: AppRuntime.defaultPython) }
+        let task = Task { try await client.execute(.scan, python: AppRuntime.defaultPython) }
         for _ in 0..<100 {
             if (try? await client.scanInProgress()) == true { break }
             try await Task.sleep(for: .milliseconds(20))
@@ -189,9 +189,9 @@ struct BackendHTTPTests {
             try await Task.sleep(for: .milliseconds(20))
         }
         #expect(try await !client.scanInProgress())
-        let snapshot = try await client.execute(["snapshot"], python: AppRuntime.defaultPython)
+        let snapshot = try await client.execute(.snapshot, python: AppRuntime.defaultPython)
         #expect(snapshot.jobs.isEmpty)
-        let next = Task { try await client.execute(["scan"], python: AppRuntime.defaultPython) }
+        let next = Task { try await client.execute(.scan, python: AppRuntime.defaultPython) }
         for _ in 0..<100 {
             if (try? await client.scanInProgress()) == true { break }
             try await Task.sleep(for: .milliseconds(20))

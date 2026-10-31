@@ -1,3 +1,10 @@
+//
+//  MobileVacanciesView.swift
+//  JobScout
+//
+//  Created by Andrii Bryzhnychenko on 10/30/26.
+//
+
 import JobScoutKit
 import SwiftUI
 

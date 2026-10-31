@@ -43,27 +43,17 @@ final class MobileJobStore {
     }
 
     var sources: [String] {
-        Set((snapshot?.jobs ?? []).flatMap { $0.listings.map(\.source) } + (snapshot?.sources ?? []).map(\.id)).sorted()
+        snapshot?.sourceIDs ?? []
     }
 
     var hasFilters: Bool { !search.isEmpty || role != .all || source != "All sources" }
 
     var jobs: [Vacancy] {
-        (snapshot?.jobs ?? []).filter {
-            mailbox.contains($0, minimumScore: snapshot?.minimumScore ?? 45, strongThreshold: snapshot?.strongThreshold ?? 70)
-                && (role == .all || $0.assessment.role == role.rawValue.lowercased())
-                && (source == "All sources" || $0.hasSource(source))
-                && (search.isEmpty || $0.searchableText.localizedStandardContains(search))
-        }.sorted {
-            if sort == .recent, $0.created != $1.created { return $0.created > $1.created }
-            return $0.assessment.score == $1.assessment.score ? $0.id < $1.id : $0.assessment.score > $1.assessment.score
-        }
+        snapshot?.vacancies(in: mailbox, role: role, source: source, search: search, sort: sort) ?? []
     }
 
     func count(_ mailbox: Mailbox) -> Int {
-        (snapshot?.jobs ?? []).filter {
-            mailbox.contains($0, minimumScore: snapshot?.minimumScore ?? 45, strongThreshold: snapshot?.strongThreshold ?? 70)
-        }.count
+        snapshot?.count(in: mailbox) ?? 0
     }
 
     func resetFilters() {

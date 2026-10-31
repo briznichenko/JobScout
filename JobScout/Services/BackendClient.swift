@@ -55,20 +55,41 @@ enum BackendError: LocalizedError, Sendable {
     case resourcesMissing
     case invalidPython
     case failed(String)
-    case unreadableResponse(String)
 
     var errorDescription: String? {
         switch self {
         case .resourcesMissing: "The bundled crawler is missing. Rebuild JobScout from its Xcode project."
         case .invalidPython: "Choose an executable Python 3.12 or newer in Settings."
         case .failed(let message): message
-        case .unreadableResponse(let message): "Could not read the crawler response. \(message)"
+        }
+    }
+}
+
+enum BackendCommand: Sendable, Equatable {
+    case snapshot
+    case scan
+    case resumeScan
+    case updateStatus(ApplicationStatus, id: Int)
+    case importFile(URL, kind: ImportKind)
+    case rescore
+    case report
+
+    enum ImportKind: Sendable, Equatable {
+        case vacancies(adapter: String?)
+        case tracker
+        case source(String)
+    }
+
+    var isScan: Bool {
+        switch self {
+        case .scan, .resumeScan: true
+        default: false
         }
     }
 }
 
 protocol JobBackend: Sendable {
-    func execute(_ command: [String], python: String) async throws -> JobSnapshot
+    func execute(_ command: BackendCommand, python: String) async throws -> JobSnapshot
     func cancelScan() async throws
     func scanInProgress() async throws -> Bool
 }
@@ -153,8 +174,8 @@ actor BackendClient: JobBackend {
         _ = try await client(python: python).saveSettings(config: config)
     }
 
-    func execute(_ command: [String], python: String) async throws -> JobSnapshot {
-        let scanning = ["scan", "resume-scan"].contains(command.first ?? "")
+    func execute(_ command: BackendCommand, python: String) async throws -> JobSnapshot {
+        let scanning = command.isScan
         if scanning { activeScanCommand = true }
         defer {
             if scanning {
@@ -163,16 +184,16 @@ actor BackendClient: JobBackend {
             }
         }
         let api = try await client(python: python)
-        switch command.first {
-        case "snapshot":
+        switch command {
+        case .snapshot:
             return try await api.snapshot()
-        case "resume-scan":
+        case .resumeScan:
             if let current = try await api.currentScan(), current.isRunning {
                 if cancellationRequested { _ = try await api.cancelScan(id: current.id) }
                 try await wait(current, api: api)
             }
             return try await api.snapshot()
-        case "scan":
+        case .scan:
             try Task.checkCancellation()
             if cancellationRequested { throw CancellationError() }
             let operation: ScanOperation
@@ -184,24 +205,24 @@ actor BackendClient: JobBackend {
             if cancellationRequested { _ = try await api.cancelScan(id: operation.id) }
             try await wait(operation, api: api)
             return try await api.snapshot()
-        case "status":
-            guard command.count == 3, let id = Int(command[1]), let status = ApplicationStatus(rawValue: command[2]) else {
-                throw BackendError.failed("Invalid status update.")
-            }
+        case .updateStatus(let status, let id):
             return try await api.updateStatus(status, for: id)
-        case "import", "import-tracker", "import-source":
-            guard command.count >= 2 else { throw BackendError.failed("Choose a file to import.") }
-            let url = URL(filePath: command[1])
+        case .importFile(let url, let kind):
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
             let data = try Data(contentsOf: url)
-            let adapter = command.firstIndex(of: "--adapter").flatMap { command.indices.contains($0 + 1) ? command[$0 + 1] : nil }
-            let source = command.firstIndex(of: "--source").flatMap { command.indices.contains($0 + 1) ? command[$0 + 1] : nil }
-            return try await api.importFile(data: data, filename: url.lastPathComponent,
-                kind: command[0] == "import-tracker" ? "tracker" : command[0] == "import-source" ? "source" : "vacancies", adapter: adapter, source: source)
-        case "rescore": return try await api.rescore()
-        case "report": return try await api.report()
-        default: throw BackendError.failed("Unsupported service command.")
+            switch kind {
+            case .vacancies(let adapter):
+                return try await api.importFile(data: data, filename: url.lastPathComponent, kind: "vacancies", adapter: adapter)
+            case .tracker:
+                return try await api.importFile(data: data, filename: url.lastPathComponent, kind: "tracker")
+            case .source(let source):
+                return try await api.importFile(data: data, filename: url.lastPathComponent, kind: "source", source: source)
+            }
+        case .rescore:
+            return try await api.rescore()
+        case .report:
+            return try await api.report()
         }
     }
 
